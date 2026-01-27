@@ -40,40 +40,97 @@ class ModernBannerActions extends StatelessWidget {
         ? 'Accept Selected'
         : 'Accept Only Necessary';
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 768;
+    final isSmallMobile = screenWidth < 400;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: BoxDecoration(color: Colors.grey[50]),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          OutlinedButton(
-            onPressed: onRejectAll,
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Colors.orange),
-            ),
-            child: const Text(
-              'Reject All',
-              style: TextStyle(color: Colors.orange),
-            ),
-          ),
-          const SizedBox(width: 16),
-          ElevatedButton(
-            onPressed: onConsentAll,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _parseColor(primaryColor),
-            ),
-            child: Text(actionButtonText ?? 'Accept All'),
-          ),
-          const SizedBox(width: 16),
-          ElevatedButton(
-            onPressed: isDisabled ? null : onAcceptSelected,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isDisabled ? Colors.grey : Colors.green,
-            ),
-            child: Text(dynamicButtonLabel),
-          ),
-        ],
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 24,
+        vertical: 16,
       ),
+      decoration: BoxDecoration(color: Colors.grey[50]),
+      child: isSmallMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                OutlinedButton(
+                  onPressed: onRejectAll,
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.orange),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text(
+                    'Reject All',
+                    style: TextStyle(color: Colors.orange),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: onConsentAll,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _parseColor(primaryColor),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: Text(actionButtonText ?? 'Accept All'),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: isDisabled ? null : onAcceptSelected,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDisabled ? Colors.grey : Colors.green,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: Text(dynamicButtonLabel),
+                ),
+              ],
+            )
+          : Wrap(
+              alignment: WrapAlignment.end,
+              spacing: isMobile ? 8 : 16,
+              runSpacing: 12,
+              children: [
+                OutlinedButton(
+                  onPressed: onRejectAll,
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.orange),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 20 : 32,
+                      vertical: 10,
+                    ),
+                  ),
+                  child: const Text(
+                    'Reject All',
+                    style: TextStyle(color: Colors.orange),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: onConsentAll,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _parseColor(primaryColor),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 20 : 32,
+                      vertical: 10,
+                    ),
+                  ),
+                  child: Text(actionButtonText ?? 'Accept All'),
+                ),
+                ElevatedButton(
+                  onPressed: isDisabled ? null : onAcceptSelected,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDisabled ? Colors.grey : Colors.green,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 20 : 32,
+                      vertical: 10,
+                    ),
+                  ),
+                  child: Text(
+                    dynamicButtonLabel,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }
