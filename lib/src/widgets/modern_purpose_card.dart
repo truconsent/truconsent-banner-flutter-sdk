@@ -1,11 +1,11 @@
 /// ModernPurposeCard - Flutter purpose card widget
-import 'package:flutter/material.dart';
-import '../models/banner.dart';
+import 'package:flutter/material.dart' hide Banner;
+import '../models/banner.dart' as models;
 import 'collapsible_data_section.dart';
 
 class ModernPurposeCard extends StatefulWidget {
-  final Purpose purpose;
-  final Banner banner;
+  final models.Purpose purpose;
+  final models.Banner banner;
   final Function(String, String) onToggle;
 
   const ModernPurposeCard({

@@ -1,8 +1,8 @@
 /// TruConsentModal - Main Flutter widget for displaying consent banner
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Banner;
 import 'package:uuid/uuid.dart';
-import '../models/banner.dart';
-import '../services/banner_service.dart';
+import '../models/banner.dart' as models;
+import '../services/banner_service.dart' show fetchBanner, submitConsent, defaultApiBaseUrl;
 import '../services/consent_manager.dart';
 import 'banner_ui.dart';
 import 'cookie_banner_ui.dart';
@@ -15,7 +15,7 @@ class TruConsentModal extends StatefulWidget {
   final String? apiBaseUrl;
   final String? logoUrl;
   final String companyName;
-  final Function(ConsentAction)? onClose;
+  final Function(models.ConsentAction)? onClose;
 
   const TruConsentModal({
     super.key,
@@ -34,7 +34,7 @@ class TruConsentModal extends StatefulWidget {
 }
 
 class _TruConsentModalState extends State<TruConsentModal> {
-  Banner? _banner;
+  models.Banner? _banner;
   bool _isLoading = true;
   bool _actionLoading = false;
   String? _error;
@@ -43,7 +43,7 @@ class _TruConsentModalState extends State<TruConsentModal> {
   bool _actionRunning = false;
   bool _closeButtonClicked = false;
   late String _requestId;
-  List<Purpose> _purposes = [];
+  List<models.Purpose> _purposes = [];
 
   @override
   void initState() {
@@ -63,7 +63,7 @@ class _TruConsentModalState extends State<TruConsentModal> {
         bannerId: widget.bannerId,
         apiKey: widget.apiKey,
         organizationId: widget.organizationId,
-        apiBaseUrl: widget.apiBaseUrl,
+        apiBaseUrl: widget.apiBaseUrl ?? defaultApiBaseUrl,
       );
       setState(() {
         _banner = banner;
@@ -78,10 +78,10 @@ class _TruConsentModalState extends State<TruConsentModal> {
     }
   }
 
-  Future<void> _sendLogEvent(ConsentAction action, [List<Purpose>? purposesToSend]) async {
+  Future<void> _sendLogEvent(models.ConsentAction action, [List<models.Purpose>? purposesToSend]) async {
     if (_banner == null || _actionRunning) return;
 
-    if (action != ConsentAction.noAction) {
+    if (action != models.ConsentAction.noAction) {
       _actionTaken = true;
     }
 
@@ -95,7 +95,7 @@ class _TruConsentModalState extends State<TruConsentModal> {
         apiKey: widget.apiKey,
         organizationId: widget.organizationId,
         requestId: _requestId,
-        apiBaseUrl: widget.apiBaseUrl,
+        apiBaseUrl: widget.apiBaseUrl ?? defaultApiBaseUrl,
       );
     } catch (e) {
       debugPrint('Failed to log consent event: $e');
@@ -105,7 +105,7 @@ class _TruConsentModalState extends State<TruConsentModal> {
     }
   }
 
-  void _close(ConsentAction type) {
+  void _close(models.ConsentAction type) {
     setState(() {
       _visible = false;
     });
@@ -114,7 +114,7 @@ class _TruConsentModalState extends State<TruConsentModal> {
     }
   }
 
-  Future<void> _handleAction(ConsentAction action) async {
+  Future<void> _handleAction(models.ConsentAction action) async {
     if (_banner == null) return;
     setState(() {
       _actionLoading = true;
@@ -144,8 +144,8 @@ class _TruConsentModalState extends State<TruConsentModal> {
 
     try {
       final updatedPurposes = acceptMandatoryPurposes(_purposes);
-      await _sendLogEvent(ConsentAction.approved, updatedPurposes);
-      _close(ConsentAction.approved);
+      await _sendLogEvent(models.ConsentAction.approved, updatedPurposes);
+      _close(models.ConsentAction.approved);
     } catch (e) {
       setState(() {
         _error = 'Something went wrong. Please try again.';
@@ -161,10 +161,10 @@ class _TruConsentModalState extends State<TruConsentModal> {
     _closeButtonClicked = true;
 
     if (!_actionTaken) {
-      _sendLogEvent(ConsentAction.noAction);
+      _sendLogEvent(models.ConsentAction.noAction);
       _actionTaken = true;
     }
-    _close(ConsentAction.noAction);
+    _close(models.ConsentAction.noAction);
   }
 
   void _updatePurpose(String purposeId, String newStatus) {
@@ -210,29 +210,8 @@ class _TruConsentModalState extends State<TruConsentModal> {
           ],
         ),
         child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            Positioned(
-              top: 16,
-              right: 16,
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: Colors.black.withOpacity(0.1),
-                    width: 1,
-                  ),
-                ),
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  icon: const Icon(Icons.close, size: 20),
-                  color: const Color(0xFF666666),
-                  onPressed: _handleCloseClick,
-                ),
-              ),
-            ),
             if (_isLoading)
               const Center(
                 child: Column(
@@ -310,40 +289,75 @@ class _TruConsentModalState extends State<TruConsentModal> {
                                   banner: _banner!,
                                   companyName: resolvedCompanyName,
                                   logoUrl: resolvedLogoUrl,
-                                  onRejectAll: () => _handleAction(ConsentAction.declined),
-                                  onConsentAll: () => _handleAction(ConsentAction.approved),
+                                onRejectAll: () => _handleAction(models.ConsentAction.declined),
+                                onConsentAll: () => _handleAction(models.ConsentAction.approved),
                                 )
-                              : BannerUI(
-                                  banner: Banner(
-                                    bannerId: _banner!.bannerId,
-                                    collectionPoint: _banner!.collectionPoint,
-                                    version: _banner!.version,
-                                    title: _banner!.title,
-                                    expiryType: _banner!.expiryType,
-                                    asset: _banner!.asset,
-                                    purposes: _purposes,
-                                    dataElements: _banner!.dataElements,
-                                    legalEntities: _banner!.legalEntities,
-                                    tools: _banner!.tools,
-                                    processingActivities: _banner!.processingActivities,
-                                    consentType: _banner!.consentType,
-                                    cookieConfig: _banner!.cookieConfig,
-                                    bannerSettings: _banner!.bannerSettings,
-                                    organization: _banner!.organization,
-                                    organizationName: _banner!.organizationName,
-                                  ),
+                            : BannerUI(
+                                banner: models.Banner(
+                                  bannerId: _banner!.bannerId,
+                                  collectionPoint: _banner!.collectionPoint,
+                                  version: _banner!.version,
+                                  title: _banner!.title,
+                                  expiryType: _banner!.expiryType,
+                                  asset: _banner!.asset,
+                                  purposes: _purposes,
+                                  dataElements: _banner!.dataElements,
+                                  legalEntities: _banner!.legalEntities,
+                                  tools: _banner!.tools,
+                                  processingActivities: _banner!.processingActivities,
+                                  consentType: _banner!.consentType,
+                                  cookieConfig: _banner!.cookieConfig,
+                                  bannerSettings: _banner!.bannerSettings,
+                                  organization: _banner!.organization,
+                                  organizationName: _banner!.organizationName,
+                                ),
                                   companyName: resolvedCompanyName,
                                   logoUrl: resolvedLogoUrl,
                                   onChangePurpose: _updatePurpose,
-                                  onRejectAll: () => _handleAction(ConsentAction.declined),
-                                  onConsentAll: () => _handleAction(ConsentAction.approved),
-                                  onAcceptSelected: _handleAcceptSelected,
+                                onRejectAll: () => _handleAction(models.ConsentAction.declined),
+                                onConsentAll: () => _handleAction(models.ConsentAction.approved),
+                                onAcceptSelected: _handleAcceptSelected,
                                 ),
                         ),
                       ),
                   ],
                 ),
               ),
+            // Close button - positioned last to appear on top of all content
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Material(
+                elevation: 8,
+                borderRadius: BorderRadius.circular(18),
+                color: Colors.transparent,
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: Colors.black.withOpacity(0.1),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: const Icon(Icons.close, size: 20),
+                    color: const Color(0xFF666666),
+                    onPressed: _handleCloseClick,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

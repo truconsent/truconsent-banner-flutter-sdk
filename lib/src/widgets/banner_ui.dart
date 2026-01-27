@@ -1,13 +1,13 @@
 /// BannerUI - Flutter banner UI widget
-import 'package:flutter/material.dart';
-import '../models/banner.dart';
+import 'package:flutter/material.dart' hide Banner;
+import '../models/banner.dart' as models;
 import 'modern_banner_header.dart';
 import 'modern_purpose_card.dart';
 import 'modern_banner_footer.dart';
 import 'modern_banner_actions.dart';
 
 class BannerUI extends StatelessWidget {
-  final Banner banner;
+  final models.Banner banner;
   final String companyName;
   final String? logoUrl;
   final Function(String, String) onChangePurpose;

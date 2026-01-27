@@ -1,9 +1,9 @@
 /// CookieBannerUI - Flutter cookie consent UI widget
-import 'package:flutter/material.dart';
-import '../models/banner.dart';
+import 'package:flutter/material.dart' hide Banner;
+import '../models/banner.dart' as models;
 
 class CookieBannerUI extends StatefulWidget {
-  final Banner banner;
+  final models.Banner banner;
   final String companyName;
   final String? logoUrl;
   final VoidCallback onRejectAll;

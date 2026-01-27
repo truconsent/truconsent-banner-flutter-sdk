@@ -4,6 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/banner.dart';
 
+String _bodyPreview(String body, {int max = 240}) {
+  if (body.length <= max) return body;
+  return body.substring(0, max) + '...';
+}
+
 const String defaultApiBaseUrl =
     'https://rdwcymn5poo6zbzg5fa5xzjsqy0zzcpm.lambda-url.ap-south-1.on.aws/banners';
 
@@ -26,6 +31,9 @@ Future<Banner> fetchBanner({
   }
 
   final url = Uri.parse('$apiBaseUrl/$bannerId');
+  debugPrint('Fetching banner from: $url');
+  debugPrint('Headers: X-API-Key=${apiKey.substring(0, 10)}..., X-Org-Id=$organizationId');
+  
   final response = await http.get(
     url,
     headers: {
@@ -34,6 +42,9 @@ Future<Banner> fetchBanner({
       'X-Org-Id': organizationId,
     },
   );
+  
+  debugPrint('Banner API response status: ${response.statusCode}');
+  debugPrint('Response headers: ${response.headers}');
 
   if (response.statusCode == 401) {
     throw Exception('Authentication required - Invalid or missing API key');
@@ -46,32 +57,70 @@ Future<Banner> fetchBanner({
     throw Exception(
         'Banner not found - Banner ID "$bannerId" does not exist or is not accessible');
   }
+  // Check content type first to handle HTML/error responses
+  final contentType = response.headers['content-type'] ?? '';
+  final isJson = contentType.contains('application/json');
+  final bodyTrimmed = response.body.trimLeft();
+  final isHtml = bodyTrimmed.startsWith('<!DOCTYPE') ||
+      bodyTrimmed.startsWith('<!doctype') ||
+      bodyTrimmed.startsWith('<html') ||
+      contentType.contains('text/html');
+
   if (response.statusCode != 200) {
     String errorMessage = 'Failed to load banner (${response.statusCode})';
     try {
-      final contentType = response.headers['content-type'];
-      if (contentType != null && contentType.contains('application/json')) {
+      if (isJson) {
         final errorData = json.decode(response.body) as Map<String, dynamic>;
         errorMessage = errorData['message'] ?? errorData['error'] ?? errorMessage;
-      } else {
-        final errorText = response.body;
-        // Try to extract meaningful error from HTML response
+      } else if (isHtml) {
+        // Extract error from HTML
         final match = RegExp(r'<p>(.*?)</p>', caseSensitive: false)
-            .firstMatch(errorText);
+            .firstMatch(response.body);
         if (match != null && match.group(1) != null) {
           errorMessage = match.group(1)!.trim();
-        } else if (errorText.isNotEmpty && errorText.length < 200) {
-          errorMessage = errorText;
+        } else {
+          final titleMatch = RegExp(r'<title>(.*?)</title>', caseSensitive: false)
+              .firstMatch(response.body);
+          if (titleMatch != null && titleMatch.group(1) != null) {
+            errorMessage = titleMatch.group(1)!.trim();
+          }
         }
       }
     } catch (e) {
       debugPrint('Error parsing error response: $e');
     }
+    debugPrint(
+        'Banner fetch failed | status=${response.statusCode} | content-type=$contentType | preview=${_bodyPreview(response.body)}');
     throw Exception(errorMessage);
   }
 
-  final jsonData = json.decode(response.body) as Map<String, dynamic>;
-  return Banner.fromJson(jsonData);
+  // Even with 200 status, check if response is actually JSON
+  if (isHtml) {
+    String errorMessage =
+        'Server returned an error page instead of banner data (status ${response.statusCode}).';
+    try {
+      final match = RegExp(r'<p>(.*?)</p>', caseSensitive: false)
+          .firstMatch(response.body);
+      if (match != null && match.group(1) != null) {
+        errorMessage = match.group(1)!.trim();
+      }
+    } catch (e) {
+      debugPrint('Error extracting error from HTML: $e');
+    }
+    debugPrint(
+        'Banner fetch returned HTML | status=${response.statusCode} | content-type=$contentType | preview=${_bodyPreview(response.body)}');
+    throw Exception(errorMessage);
+  }
+
+  // Parse JSON response
+  try {
+    final jsonData = json.decode(response.body) as Map<String, dynamic>;
+    return Banner.fromJson(jsonData);
+  } catch (e) {
+    debugPrint('Error parsing JSON response: $e');
+    debugPrint('Response preview: ${response.body.substring(0, response.body.length > 500 ? 500 : response.body.length)}');
+    throw Exception('Failed to parse banner data. The server may have returned an error. Please check your API credentials and banner ID.');
+  }
 }
 
 /// Submit consent to the backend
