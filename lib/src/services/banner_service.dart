@@ -1,5 +1,6 @@
 /// BannerService - HTTP client for banner API calls in Flutter
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/banner.dart';
 
@@ -41,8 +42,32 @@ Future<Banner> fetchBanner({
     throw Exception(
         'Access forbidden - API key does not have permission to access this banner');
   }
+  if (response.statusCode == 404) {
+    throw Exception(
+        'Banner not found - Banner ID "$bannerId" does not exist or is not accessible');
+  }
   if (response.statusCode != 200) {
-    throw Exception('Failed to load banner');
+    String errorMessage = 'Failed to load banner (${response.statusCode})';
+    try {
+      final contentType = response.headers['content-type'];
+      if (contentType != null && contentType.contains('application/json')) {
+        final errorData = json.decode(response.body) as Map<String, dynamic>;
+        errorMessage = errorData['message'] ?? errorData['error'] ?? errorMessage;
+      } else {
+        final errorText = response.body;
+        // Try to extract meaningful error from HTML response
+        final match = RegExp(r'<p>(.*?)</p>', caseSensitive: false)
+            .firstMatch(errorText);
+        if (match != null && match.group(1) != null) {
+          errorMessage = match.group(1)!.trim();
+        } else if (errorText.isNotEmpty && errorText.length < 200) {
+          errorMessage = errorText;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error parsing error response: $e');
+    }
+    throw Exception(errorMessage);
   }
 
   final jsonData = json.decode(response.body) as Map<String, dynamic>;

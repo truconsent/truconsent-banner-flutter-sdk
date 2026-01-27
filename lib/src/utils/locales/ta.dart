@@ -1,0 +1,20 @@
+/// Tamil translations
+const Map<String, String> taTranslations = {
+  'consent_by': '{{companyName}} மூலம் ஒப்புதல்',
+  'decline_rights':
+      '{{companyName}} தேவையில்லை என்று நீங்கள் கருதும் ஒப்புதல்களை நிராகரிக்க உங்களுக்கு உரிமை உள்ளது',
+  'expiry_type': 'காலாவதி வகை: {{expiry}}',
+  'accept': 'ஏற்க',
+  'reject_all': 'அனைத்தையும் நிராகரி',
+  'accept_all': 'அனைத்தையும் ஏற்க',
+  'accept_only_necessary': 'தேவையானவற்றை மட்டும் ஏற்க',
+  'accept_selected': 'தேர்ந்தெடுத்தவற்றை ஏற்க',
+  'i_consent': 'நான் ஒப்புக்கொள்கிறேன்',
+  'mandatory': 'கட்டாயம்',
+  'data_elements': 'தரவு கூறுகள்',
+  'legal_entities': 'சட்ட நிறுவனங்கள்',
+  'tools': 'கருவிகள்',
+  'processing_activities': 'செயலாக்க நடவடிக்கைகள்',
+  'data_processors': 'தரவு செயலாக்கிகள்',
+};
+

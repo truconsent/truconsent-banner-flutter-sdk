@@ -7,4 +7,5 @@ export 'src/widgets/cookie_banner_ui.dart';
 export 'src/models/banner.dart';
 export 'src/services/banner_service.dart';
 export 'src/services/consent_manager.dart';
+export 'src/utils/i18n.dart';
 

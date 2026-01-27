@@ -1,0 +1,20 @@
+/// Hindi translations
+const Map<String, String> hiTranslations = {
+  'consent_by': '{{companyName}} द्वारा सहमति',
+  'decline_rights':
+      'आपको {{companyName}} द्वारा आवश्यक नहीं माने जाने वाली सहमतियों को अस्वीकार करने का अधिकार है',
+  'expiry_type': 'समाप्ति प्रकार: {{expiry}}',
+  'accept': 'स्वीकार करें',
+  'reject_all': 'सभी अस्वीकार करें',
+  'accept_all': 'सभी स्वीकार करें',
+  'accept_only_necessary': 'केवल आवश्यक स्वीकार करें',
+  'accept_selected': 'चयनित स्वीकार करें',
+  'i_consent': 'मैं सहमत हूं',
+  'mandatory': 'अनिवार्य',
+  'data_elements': 'डेटा तत्व',
+  'legal_entities': 'कानूनी संस्थाएं',
+  'tools': 'उपकरण',
+  'processing_activities': 'प्रसंस्करण गतिविधियां',
+  'data_processors': 'डेटा प्रोसेसर',
+};
+
