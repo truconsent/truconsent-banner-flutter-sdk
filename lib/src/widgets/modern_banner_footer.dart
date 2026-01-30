@@ -62,15 +62,27 @@ class ModernBannerFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final isMobile = screenSize.width < 600;
+    final fontSize = isMobile ? 11.0 : 12.0;
+    
     final processedText = _processPlaceholder(footerText);
     final spans = _parseMarkdownLinks(processedText);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 24,
+        vertical: isMobile ? 12 : 16,
+      ),
       child: Text.rich(
         TextSpan(children: spans),
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 12, color: Colors.grey),
+        textAlign: TextAlign.left,
+        style: TextStyle(
+          fontSize: fontSize,
+          color: Colors.grey[700],
+          height: 1.6,
+          fontWeight: FontWeight.w400,
+        ),
       ),
     );
   }
