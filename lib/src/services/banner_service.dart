@@ -145,6 +145,11 @@ Future<Map<String, dynamic>> submitConsent({
   }
 
   final url = Uri.parse('$apiBaseUrl/$collectionPointId/consent');
+  debugPrint('📤 Submitting consent to: $url');
+  debugPrint('📤 Action: ${action.value}');
+  debugPrint('📤 User ID: $userId');
+  debugPrint('📤 Purposes: ${purposes.map((p) => p.id).toList()}');
+  
   final response = await http.post(
     url,
     headers: {
@@ -159,6 +164,9 @@ Future<Map<String, dynamic>> submitConsent({
       'requestId': requestId,
     }),
   );
+
+  debugPrint('📥 Consent API response status: ${response.statusCode}');
+  debugPrint('📥 Consent API response body: ${response.body}');
 
   if (response.statusCode != 200 && response.statusCode != 201) {
     throw Exception('Failed to submit consent');

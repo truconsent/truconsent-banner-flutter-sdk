@@ -29,20 +29,18 @@ class _ModernBannerHeaderState extends State<ModernBannerHeader> {
 
   String _getTitle() {
     final title = _processPlaceholder(widget.bannerTitle);
-    return title.isNotEmpty
-        ? title
-        : Intl.message('Consent by {{companyName}}',
-            name: 'consent_by', args: [widget.orgName]);
+    if (title.isNotEmpty) {
+      return title.replaceAll('{{companyName}}', widget.orgName);
+    }
+    return 'Consent by ${widget.orgName}';
   }
 
   String _getDisclaimer() {
     final disclaimer = _processPlaceholder(widget.disclaimerText);
-    return disclaimer.isNotEmpty
-        ? disclaimer
-        : Intl.message(
-            'You have the right to decline consents which you feel are not required by {{companyName}}',
-            name: 'decline_rights',
-            args: [widget.orgName]);
+    if (disclaimer.isNotEmpty) {
+      return disclaimer.replaceAll('{{companyName}}', widget.orgName);
+    }
+    return 'You have the right to decline consents which you feel are not required by ${widget.orgName}';
   }
 
   @override
