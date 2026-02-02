@@ -482,6 +482,30 @@
       "languageVersion": "3.3"
     },
     {
+      "name": "webview_flutter",
+      "rootUri": "file:///C:/Users/abish/AppData/Local/Pub/Cache/hosted/pub.dev/webview_flutter-4.13.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.8"
+    },
+    {
+      "name": "webview_flutter_android",
+      "rootUri": "file:///C:/Users/abish/AppData/Local/Pub/Cache/hosted/pub.dev/webview_flutter_android-4.10.11",
+      "packageUri": "lib/",
+      "languageVersion": "3.9"
+    },
+    {
+      "name": "webview_flutter_platform_interface",
+      "rootUri": "file:///C:/Users/abish/AppData/Local/Pub/Cache/hosted/pub.dev/webview_flutter_platform_interface-2.14.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.6"
+    },
+    {
+      "name": "webview_flutter_wkwebview",
+      "rootUri": "file:///C:/Users/abish/AppData/Local/Pub/Cache/hosted/pub.dev/webview_flutter_wkwebview-3.23.5",
+      "packageUri": "lib/",
+      "languageVersion": "3.9"
+    },
+    {
       "name": "yaml",
       "rootUri": "file:///C:/Users/abish/AppData/Local/Pub/Cache/hosted/pub.dev/yaml-3.1.3",
       "packageUri": "lib/",

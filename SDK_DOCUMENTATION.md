@@ -2,7 +2,23 @@
 
 This document lists every component shipped in the TruConsent Flutter SDK, including public APIs, models, services, utilities, widgets, configuration, dependencies, and file structure.
 
-## 1. Package Metadata
+## 1. Overview
+
+The TruConsent Flutter SDK is a comprehensive solution for displaying and managing consent banners in Flutter applications. It provides native Flutter widgets for collecting user consent, supporting GDPR, CCPA, DPDPA, and other privacy regulations.
+
+### Key Features
+
+- **Native Flutter Widgets**: Built specifically for Flutter applications (iOS, Android, Web)
+- **Multiple Consent Types**: Supports standard consent, cookie consent, and general consent
+- **Flexible Purpose Management**: Users can accept/decline individual purposes or use bulk actions
+- **Internationalization**: Built-in support for multiple languages (English, Hindi, Tamil)
+- **Customizable UI**: Modern, responsive interface with Material Design
+- **Consent Tracking**: Automatic logging of consent actions to the TruConsent API
+- **Rights Center**: Comprehensive rights management interface (RightCenter component) with WebView integration
+- **Error Handling**: Comprehensive error handling with user-friendly messages
+- **Auto-showing Wrapper**: TruConsent widget for automatic modal display
+
+## 2. Package Metadata
 
 - Package: truconsent_consent_banner_flutter
 - Version: 0.1.0
@@ -20,6 +36,7 @@ Runtime:
 - intl ^0.20.2
 - uuid ^4.3.0
 - url_launcher ^6.2.0
+- webview_flutter ^4.4.2
 
 Dev:
 - flutter_test
@@ -27,7 +44,7 @@ Dev:
 - mockito ^5.4.4
 - build_runner ^2.4.7
 
-## 2. Entry Points (Public Exports)
+## 3. Entry Points (Public Exports)
 
 The SDK exports all public APIs through:
 - lib/truconsent_consent_banner_flutter.dart
@@ -35,9 +52,11 @@ The SDK exports all public APIs through:
 
 Both files export the same symbols:
 - Widgets
-  - TruConsentModal
-  - BannerUI
-  - CookieBannerUI
+  - TruConsentModal (Main modal component)
+  - TruConsent (Auto-showing wrapper for TruConsentModal)
+  - BannerUI (Standard consent UI)
+  - CookieBannerUI (Cookie consent UI)
+  - RightCenter (Rights management component with WebView)
 - Models
   - Banner
   - Purpose
@@ -66,7 +85,7 @@ Both files export the same symbols:
 - I18n helper
   - I18n
 
-## 3. Folder Structure
+## 4. Folder Structure
 
 lib/
 - truconsent_consent_banner_flutter.dart
@@ -93,7 +112,7 @@ lib/
     - modern_banner_actions.dart
     - collapsible_data_section.dart
 
-## 4. Core Widget: TruConsentModal
+## 5. Core Widget: TruConsentModal
 
 File: lib/src/widgets/tru_consent_modal.dart
 
@@ -226,7 +245,7 @@ Props:
 - isOpen (bool)
 - onToggle (VoidCallback)
 
-## 6. Models
+## 7. Models
 
 All models are defined in lib/src/models/banner.dart.
 
@@ -336,7 +355,7 @@ ConsentActionExtension.value returns:
 - revoked -> revoked
 - partialConsent -> partial_consent
 
-## 7. Services
+## 8. Services
 
 ### BannerService (banner_service.dart)
 
@@ -357,7 +376,7 @@ Functions:
   - Sends userId, purposes, action, requestId
   - Returns Map<String, dynamic>
 
-## 8. Consent Manager
+## 9. Consent Manager
 
 File: lib/src/services/consent_manager.dart
 
@@ -370,7 +389,7 @@ Functions:
 - hasOptionalAccepted(purposes)
 - hasMandatoryPurposes(purposes)
 
-## 9. Internationalization (i18n)
+## 10. Internationalization (i18n)
 
 ### I18n Helper
 File: lib/src/utils/i18n.dart
@@ -406,7 +425,7 @@ Keys provided:
 - processing_activities
 - data_processors
 
-## 10. Example and Testing
+## 11. Example and Testing
 
 Example app:
 - example/
@@ -415,7 +434,7 @@ Testing:
 - test/
 - TESTING_ISSUES.md contains known issues and guidance.
 
-## 11. Error Handling
+## 12. Error Handling
 
 Handled error scenarios in fetchBanner:
 - Missing bannerId / apiKey / organizationId
@@ -434,7 +453,7 @@ UI error presentation in TruConsentModal:
 - Access denied
 - Generic server errors
 
-## 12. Customization and Theming
+## 13. Customization and Theming
 
 - bannerSettings.primaryColor, bannerSettings.secondaryColor
 - bannerSettings.logoUrl
@@ -444,7 +463,7 @@ UI error presentation in TruConsentModal:
 - bannerSettings.actionButtonText
 - companyName and logoUrl overrides in TruConsentModal
 
-## 13. Consent Flow Summary
+## 14. Consent Flow Summary
 
 1. TruConsentModal loads banner data via fetchBanner.
 2. BannerUI or CookieBannerUI renders based on banner.consentType.
@@ -452,14 +471,14 @@ UI error presentation in TruConsentModal:
 4. Consent action is submitted with submitConsent.
 5. onClose is called with ConsentAction.
 
-## 14. Known Limits and Defaults
+## 15. Known Limits and Defaults
 
 - defaultApiBaseUrl is preconfigured for the TruConsent API.
 - Consent status values are expected as strings: accepted, declined, pending.
 - Language selector is visual; actual text is handled through local translations and template replacements.
 - Dialog sizing uses a responsive breakpoint around 768px.
 
-## 15. Related Documents
+## 16. Related Documents
 
 - README.md
 - INTEGRATION_GUIDE.md
