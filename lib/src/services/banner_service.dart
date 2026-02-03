@@ -9,10 +9,27 @@ String _bodyPreview(String body, {int max = 240}) {
   return body.substring(0, max) + '...';
 }
 
+/// Default base URL for the TruConsent API
 const String defaultApiBaseUrl =
     'https://rdwcymn5poo6zbzg5fa5xzjsqy0zzcpm.lambda-url.ap-south-1.on.aws/banners';
 
-/// Fetch banner configuration from API
+/// Fetches banner configuration from the TruConsent API.
+///
+/// Retrieves the banner configuration including purposes, data elements,
+/// and processing activities for the specified banner ID.
+///
+/// Throws an [Exception] if:
+/// - [bannerId], [apiKey], or [organizationId] is empty
+/// - API returns an error status (401, 403, 404, 500)
+///
+/// Example:
+/// ```dart
+/// final banner = await fetchBanner(
+///   bannerId: 'CP001',
+///   apiKey: 'your-api-key',
+///   organizationId: 'your-org-id',
+/// );
+/// ```
 Future<Banner> fetchBanner({
   required String bannerId,
   required String apiKey,
@@ -123,7 +140,28 @@ Future<Banner> fetchBanner({
   }
 }
 
-/// Submit consent to the backend
+/// Submits user consent choices to the TruConsent API.
+///
+/// Sends the user's consent decisions (accepted/declined purposes) to the backend
+/// for storage and tracking.
+///
+/// Returns a [Map] containing the API response data.
+///
+/// Throws an [Exception] if:
+/// - Required parameters are empty
+/// - API returns an error status
+///
+/// Example:
+/// ```dart
+/// final response = await submitConsent(
+///   collectionPointId: 'CP001',
+///   userId: 'user-123',
+///   purposes: acceptedPurposes,
+///   action: ConsentAction.approved,
+///   apiKey: 'your-api-key',
+///   organizationId: 'your-org-id',
+/// );
+/// ```
 Future<Map<String, dynamic>> submitConsent({
   required String collectionPointId,
   required String userId,

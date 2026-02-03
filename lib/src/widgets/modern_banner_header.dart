@@ -1,6 +1,5 @@
 /// ModernBannerHeader - Flutter banner header widget
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 class ModernBannerHeader extends StatefulWidget {
   final String? logoUrl;
@@ -74,7 +73,7 @@ class _ModernBannerHeaderState extends State<ModernBannerHeader> {
                               color: Colors.white,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
+                                  color: Colors.black.withValues(alpha: 0.1),
                                   blurRadius: 4,
                                   offset: const Offset(0, 2),
                                 ),
@@ -119,7 +118,7 @@ class _ModernBannerHeaderState extends State<ModernBannerHeader> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.7),
+                        color: Colors.white.withValues(alpha: 0.7),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: Colors.grey[300]!),
                       ),

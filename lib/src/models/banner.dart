@@ -1,4 +1,7 @@
-/// Banner model for TruConsent Flutter SDK
+/// Banner model representing the consent banner configuration from TruConsent API.
+///
+/// Contains all banner data including purposes, data elements, processing activities,
+/// and banner settings.
 class Banner {
   final String bannerId;
   final String collectionPoint;

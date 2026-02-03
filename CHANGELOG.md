@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2025-02-03
+
+### Fixed
+- Removed unused fields and imports to fix linter warnings
+- Replaced deprecated `withOpacity()` with `withValues(alpha:)` for Color
+- Replaced deprecated `activeColor` with `activeThumbColor` for Switch
+- Added comprehensive dartdoc comments to public API (20%+ coverage)
+
+### Changed
+- Improved code quality and static analysis scores
+
 ## [0.1.0] - 2025-02-03
 
 ### Added

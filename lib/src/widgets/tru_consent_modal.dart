@@ -7,16 +7,52 @@ import '../services/consent_manager.dart';
 import 'banner_ui.dart';
 import 'cookie_banner_ui.dart';
 
+/// Main widget for displaying the TruConsent consent banner modal.
+///
+/// This widget handles fetching banner configuration, displaying the consent UI,
+/// and submitting user consent choices to the TruConsent API.
+///
+/// Example:
+/// ```dart
+/// TruConsentModal(
+///   apiKey: 'your-api-key',
+///   organizationId: 'your-org-id',
+///   bannerId: 'CP001',
+///   userId: 'user-123',
+///   onClose: (action) {
+///     print('Consent action: ${action.value}');
+///   },
+/// )
+/// ```
 class TruConsentModal extends StatefulWidget {
+  /// API key for TruConsent authentication
   final String apiKey;
+  
+  /// Organization ID for TruConsent
   final String organizationId;
+  
+  /// Banner/Collection Point ID to display
   final String bannerId;
+  
+  /// User ID for consent tracking
   final String userId;
+  
+  /// Optional base URL for the API. Defaults to production URL if not provided.
   final String? apiBaseUrl;
+  
+  /// Optional company logo URL to display in the banner
   final String? logoUrl;
+  
+  /// Company name to display in the banner. Defaults to 'Mars Company'.
   final String companyName;
+  
+  /// Callback function called when the modal closes with the user's consent action
   final Function(models.ConsentAction)? onClose;
 
+  /// Creates a TruConsentModal widget.
+  ///
+  /// [apiKey], [organizationId], [bannerId], and [userId] are required.
+  /// [apiBaseUrl], [logoUrl], and [onClose] are optional.
   const TruConsentModal({
     super.key,
     required this.apiKey,
@@ -36,12 +72,10 @@ class TruConsentModal extends StatefulWidget {
 class _TruConsentModalState extends State<TruConsentModal> {
   models.Banner? _banner;
   bool _isLoading = true;
-  bool _actionLoading = false;
   String? _error;
   bool _visible = true;
   bool _actionTaken = false;
   bool _actionRunning = false;
-  bool _closeButtonClicked = false;
   late String _requestId;
   List<models.Purpose> _purposes = [];
 
@@ -117,7 +151,6 @@ class _TruConsentModalState extends State<TruConsentModal> {
   Future<void> _handleAction(models.ConsentAction action) async {
     if (_banner == null) return;
     setState(() {
-      _actionLoading = true;
       _error = null;
     });
 
@@ -128,17 +161,12 @@ class _TruConsentModalState extends State<TruConsentModal> {
       setState(() {
         _error = 'Something went wrong. Please try again.';
       });
-    } finally {
-      setState(() {
-        _actionLoading = false;
-      });
     }
   }
 
   Future<void> _handleAcceptSelected() async {
     if (_banner == null) return;
     setState(() {
-      _actionLoading = true;
       _error = null;
     });
 
@@ -150,15 +178,10 @@ class _TruConsentModalState extends State<TruConsentModal> {
       setState(() {
         _error = 'Something went wrong. Please try again.';
       });
-    } finally {
-      setState(() {
-        _actionLoading = false;
-      });
     }
   }
 
   void _handleCloseClick() {
-    _closeButtonClicked = true;
 
     if (!_actionTaken) {
       _sendLogEvent(models.ConsentAction.noAction);
@@ -202,7 +225,7 @@ class _TruConsentModalState extends State<TruConsentModal> {
           border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               offset: const Offset(0, 4),
               blurRadius: 8,
               spreadRadius: 0,
@@ -338,12 +361,12 @@ class _TruConsentModalState extends State<TruConsentModal> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       width: 1,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
+                        color: Colors.black.withValues(alpha: 0.15),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),

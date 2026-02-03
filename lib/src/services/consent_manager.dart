@@ -1,7 +1,14 @@
 /// ConsentManager - Consent state management for Flutter
 import '../models/banner.dart';
 
-/// Update a single purpose's consent status in the purposes list
+/// Updates a single purpose's consent status in the purposes list.
+///
+/// Returns a new list with the specified purpose's status updated.
+///
+/// Example:
+/// ```dart
+/// final updated = updatePurposeStatus(purposes, 'p1', 'accepted');
+/// ```
 List<Purpose> updatePurposeStatus(
   List<Purpose> purposes,
   String purposeId,
@@ -27,7 +34,14 @@ List<Purpose> updatePurposeStatus(
   }).toList();
 }
 
-/// Automatically accept all mandatory purposes while keeping user's selections for optional ones
+/// Automatically accepts all mandatory purposes while keeping user's selections for optional ones.
+///
+/// Returns a new list with all mandatory purposes set to 'accepted'.
+///
+/// Example:
+/// ```dart
+/// final updated = acceptMandatoryPurposes(purposes);
+/// ```
 List<Purpose> acceptMandatoryPurposes(List<Purpose> purposes) {
   return purposes.map((p) {
     if (p.isMandatory) {

@@ -27,7 +27,6 @@ class CookieBannerUI extends StatefulWidget {
 }
 
 class _CookieBannerUIState extends State<CookieBannerUI> {
-  bool _showPreferences = false;
   final Map<String, bool> _expandedSections = {
     'purposes': true,
     'dataElements': false,
@@ -207,7 +206,9 @@ class _CookieBannerUIState extends State<CookieBannerUI> {
                   child: const Text('Reject All'),
                 ),
                 OutlinedButton(
-                  onPressed: () => setState(() => _showPreferences = true),
+                  onPressed: () {
+                    // TODO: Implement preferences management
+                  },
                   child: const Text('Manage Preferences'),
                 ),
               ],

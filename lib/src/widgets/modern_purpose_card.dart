@@ -34,7 +34,6 @@ class _ModernPurposeCardState extends State<ModernPurposeCard> {
     final isMobile = screenSize.width < 600;
     
     final isAccepted = widget.purpose.consented == 'accepted';
-    final expiryLabel = widget.purpose.expiryLabel ?? widget.purpose.expiryPeriod;
     final dataElements = widget.purpose.dataElements ?? [];
     final processingActivities = widget.purpose.processingActivities ?? [];
     final legalEntities = widget.purpose.legalEntities ?? [];
@@ -150,7 +149,7 @@ class _ModernPurposeCardState extends State<ModernPurposeCard> {
                           value ? 'accepted' : 'declined',
                         );
                       },
-                      activeColor: Colors.green[600],
+                      activeThumbColor: Colors.green[600],
                       inactiveThumbColor: Colors.grey[400],
                     ),
                   ),
