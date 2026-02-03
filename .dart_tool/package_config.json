@@ -512,7 +512,7 @@
       "languageVersion": "3.4"
     },
     {
-      "name": "truconsent_consent_banner_flutter",
+      "name": "truconsent_consent_notice_flutter",
       "rootUri": "../",
       "packageUri": "lib/",
       "languageVersion": "3.0"

@@ -1,6 +1,6 @@
 /// Test app for validating SDK functionality
 import 'package:flutter/material.dart';
-import 'package:truconsent_consent_banner_flutter/truconsent_consent_banner_flutter.dart' as truconsent;
+import 'package:truconsent_consent_notice_flutter/truconsent_consent_banner_flutter.dart' as truconsent;
 
 void main() {
   runApp(const MyApp());

@@ -34,7 +34,6 @@ class BannerUI extends StatelessWidget {
   Widget build(BuildContext context) {
     final settings = banner.bannerSettings;
     final finalPrimaryColor = settings?.primaryColor ?? primaryColor ?? '#3b82f6';
-    final finalSecondaryColor = settings?.secondaryColor ?? secondaryColor ?? '#555';
     final footerText = settings?.footerText ??
         'Review our [Privacy Policy] and [Transparency Centre], [DPO Details]. Use the [Rights Centre] anytime to withdraw consent, delete data, name a nominee, or raise a grievance.';
     final bannerTitle = settings?.bannerTitle;
@@ -43,8 +42,6 @@ class BannerUI extends StatelessWidget {
 
     final screenSize = MediaQuery.of(context).size;
     final isMobile = screenSize.width < 768;
-    final headerPadding = isMobile ? 16.0 : 24.0;
-    final purposePadding = isMobile ? 12.0 : 24.0;
 
     return Container(
       decoration: BoxDecoration(

@@ -1,6 +1,6 @@
 /// Unit tests for BannerService
 import 'package:flutter_test/flutter_test.dart';
-import 'package:truconsent_consent_banner_flutter/src/services/banner_service.dart';
+import 'package:truconsent_consent_notice_flutter/src/services/banner_service.dart';
 
 void main() {
   group('BannerService', () {

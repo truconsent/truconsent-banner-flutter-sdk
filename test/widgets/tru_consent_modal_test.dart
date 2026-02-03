@@ -1,7 +1,7 @@
 /// Widget tests for TruConsentModal
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:truconsent_consent_banner_flutter/src/widgets/tru_consent_modal.dart';
+import 'package:truconsent_consent_notice_flutter/src/widgets/tru_consent_modal.dart';
 
 void main() {
   group('TruConsentModal', () {

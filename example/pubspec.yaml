@@ -10,7 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  truconsent_consent_banner_flutter:
+  truconsent_consent_notice_flutter:
     path: ../
 
 dev_dependencies:

@@ -8,9 +8,9 @@ Add the SDK to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  truconsent_consent_banner_flutter:
+  truconsent_consent_notice_flutter:
     git:
-      url: https://github.com/truconsent/consent-banner-flutter.git
+      url: https://github.com/truconsent/truconsent-banner-flutter-sdk.git
       ref: main
 ```
 
@@ -18,8 +18,8 @@ Or if using a local path:
 
 ```yaml
 dependencies:
-  truconsent_consent_banner_flutter:
-    path: ../truconsent_consent_banner_flutter
+  truconsent_consent_notice_flutter:
+    path: ../truconsent_consent_notice_flutter
 ```
 
 Then run:
@@ -33,7 +33,7 @@ flutter pub get
 ### 1. Import the SDK
 
 ```dart
-import 'package:truconsent_consent_banner_flutter/truconsent_consent_banner_flutter.dart';
+import 'package:truconsent_consent_notice_flutter/truconsent_consent_banner_flutter.dart';
 ```
 
 ### 2. Add TruConsentModal to your app
@@ -81,7 +81,7 @@ Enum representing consent actions:
 
 ```dart
 import 'package:flutter/material.dart';
-import 'package:truconsent_consent_banner_flutter/truconsent_consent_banner_flutter.dart';
+import 'package:truconsent_consent_notice_flutter/truconsent_consent_banner_flutter.dart';
 
 class MyApp extends StatelessWidget {
   @override

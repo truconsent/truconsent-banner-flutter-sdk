@@ -20,9 +20,9 @@ The TruConsent Flutter SDK is a comprehensive solution for displaying and managi
 
 ## 2. Package Metadata
 
-- Package: truconsent_consent_banner_flutter
+- Package: truconsent_consent_notice_flutter
 - Version: 0.1.0
-- Homepage: https://github.com/truconsent/consent-banner-flutter
+- Homepage: https://github.com/truconsent/truconsent-banner-flutter-sdk
 - Dart SDK: >=3.0.0 <4.0.0
 - Flutter SDK: >=3.0.0
 
@@ -47,7 +47,7 @@ Dev:
 ## 3. Entry Points (Public Exports)
 
 The SDK exports all public APIs through:
-- lib/truconsent_consent_banner_flutter.dart
+- lib/truconsent_consent_banner_flutter.dart (file name stays the same, but package name is truconsent_consent_notice_flutter)
 - lib/tru_consent.dart
 
 Both files export the same symbols:

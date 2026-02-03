@@ -1,10 +1,10 @@
 {
   "roots": [
-    "truconsent_consent_banner_flutter"
+    "truconsent_consent_notice_flutter"
   ],
   "packages": [
     {
-      "name": "truconsent_consent_banner_flutter",
+      "name": "truconsent_consent_notice_flutter",
       "version": "0.1.0",
       "dependencies": [
         "flutter",

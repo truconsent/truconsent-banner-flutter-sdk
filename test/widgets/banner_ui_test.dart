@@ -1,8 +1,8 @@
 /// Widget tests for BannerUI
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:truconsent_consent_banner_flutter/src/widgets/banner_ui.dart';
-import 'package:truconsent_consent_banner_flutter/src/models/banner.dart';
+import 'package:truconsent_consent_notice_flutter/src/widgets/banner_ui.dart';
+import 'package:truconsent_consent_notice_flutter/src/models/banner.dart';
 
 void main() {
   group('BannerUI', () {

@@ -1,7 +1,7 @@
 /// Unit tests for ConsentManager
 import 'package:flutter_test/flutter_test.dart';
-import 'package:truconsent_consent_banner_flutter/src/services/consent_manager.dart';
-import 'package:truconsent_consent_banner_flutter/src/models/banner.dart';
+import 'package:truconsent_consent_notice_flutter/src/services/consent_manager.dart';
+import 'package:truconsent_consent_notice_flutter/src/models/banner.dart';
 
 void main() {
   group('ConsentManager', () {

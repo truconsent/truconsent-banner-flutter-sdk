@@ -1,5 +1,5 @@
 /// TruConsent Flutter SDK - Main entry point
-library truconsent_consent_banner_flutter;
+library truconsent_consent_notice_flutter;
 
 export 'src/widgets/tru_consent_modal.dart';
 export 'src/widgets/tru_consent.dart';

@@ -1,4 +1,4 @@
-# truconsent_consent_banner_flutter
+# truconsent_consent_notice_flutter
 
 Flutter SDK for TruConsent consent banner. This package provides native Flutter widgets for displaying and managing consent banners in Flutter applications.
 
@@ -8,7 +8,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  truconsent_consent_banner_flutter: ^0.1.0
+  truconsent_consent_notice_flutter: ^0.1.0
 ```
 
 Then run:
@@ -20,7 +20,7 @@ flutter pub get
 ## Usage
 
 ```dart
-import 'package:truconsent_consent_banner_flutter/truconsent_consent_banner_flutter.dart';
+import 'package:truconsent_consent_notice_flutter/truconsent_consent_banner_flutter.dart';
 
 TruConsentModal(
   apiKey: 'your-api-key',
