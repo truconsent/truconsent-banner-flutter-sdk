@@ -1,7 +1,12 @@
-/// RightCenter - Flutter implementation
+import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:http/http.dart' as http;
+
+/// Rights Center widget using WebView implementation.
 ///
-/// For stability and parity with the web demo (iframe embed), we render the hosted
-/// Rights Center inside a WebView.
+/// For stability and parity with the web demo (iframe embed), this widget
+/// renders the hosted Rights Center inside a WebView.
 ///
 /// This component provides a comprehensive rights management interface with tabs for:
 /// - Consent: View and manage all consent records
@@ -13,19 +18,35 @@
 ///
 /// Note: This component is mobile-only. On web platforms, a message is shown
 /// indicating that Rights Center is only available on mobile devices.
-import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:http/http.dart' as http;
-
+///
+/// Example:
+/// ```dart
+/// RightCenter(
+///   userId: 'user-123',
+///   apiKey: 'your-api-key',
+///   organizationId: 'your-org-id',
+/// )
+/// ```
 class RightCenter extends StatefulWidget {
+  /// User ID for rights center access
   final String userId;
+  
+  /// Optional client ID
   final String? clientId;
+  
+  /// Optional Supabase project URL
   final String? supabaseProjectUrl;
-  final String? apiKey; // TruConsent API key for x-api-key header
-  final String? organizationId; // Organization ID for x-org-id header
-  final String? supabaseAnonKey; // Supabase anon key for apikey header
+  
+  /// TruConsent API key for x-api-key header
+  final String? apiKey;
+  
+  /// Organization ID for x-org-id header
+  final String? organizationId;
+  
+  /// Supabase anon key for apikey header
+  final String? supabaseAnonKey;
 
+  /// Creates a RightCenter widget.
   const RightCenter({
     super.key,
     required this.userId,

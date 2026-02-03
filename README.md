@@ -8,7 +8,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  truconsent_consent_notice_flutter: ^0.1.1
+  truconsent_consent_notice_flutter: ^0.1.2
 ```
 
 Then run:
@@ -49,6 +49,26 @@ Main widget for displaying the consent banner modal.
 - `logoUrl` (String, optional): Company logo URL
 - `companyName` (String, optional): Company name
 - `onClose` (Function, optional): Callback when modal closes
+
+## Version History
+
+### 0.1.1 (Latest)
+- Fixed code warnings and linter issues
+- Replaced deprecated `withOpacity()` with `withValues(alpha:)`
+- Replaced deprecated `activeColor` with `activeThumbColor`
+- Added comprehensive dartdoc comments to public API (20%+ coverage)
+- Fixed dangling library doc comments
+- Improved code quality and static analysis scores
+
+### 0.1.0
+- Initial release of TruConsent Flutter SDK
+- Native Flutter widgets for consent banner display
+- TruConsentModal widget for modal-based consent collection
+- NativeRightCenter widget for Rights Center functionality
+- Support for multiple languages (English, Hindi, Tamil)
+- Consent management and tracking
+- Integration with TruConsent API
+- Support for GDPR and privacy compliance features
 
 ## License
 

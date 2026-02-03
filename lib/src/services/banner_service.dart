@@ -1,4 +1,3 @@
-/// BannerService - HTTP client for banner API calls in Flutter
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;

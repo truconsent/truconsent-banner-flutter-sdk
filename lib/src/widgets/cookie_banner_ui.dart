@@ -1,16 +1,44 @@
-/// CookieBannerUI - Flutter cookie consent UI widget
 import 'package:flutter/material.dart' hide Banner;
 import '../models/banner.dart' as models;
 
+/// Cookie consent banner UI widget.
+///
+/// Displays a cookie-specific consent banner with expandable sections for
+/// purposes, data elements, and processing activities. Used for cookie consent
+/// collection flows.
+///
+/// Example:
+/// ```dart
+/// CookieBannerUI(
+///   banner: bannerData,
+///   companyName: 'My Company',
+///   onRejectAll: () => print('Rejected all cookies'),
+///   onConsentAll: () => print('Consented to all cookies'),
+/// )
+/// ```
 class CookieBannerUI extends StatefulWidget {
+  /// Banner configuration data from the API
   final models.Banner banner;
+  
+  /// Company name to display in the banner
   final String companyName;
+  
+  /// Optional company logo URL
   final String? logoUrl;
+  
+  /// Callback when user clicks "Reject All"
   final VoidCallback onRejectAll;
+  
+  /// Callback when user clicks "Consent All"
   final VoidCallback onConsentAll;
+  
+  /// Optional primary color for buttons (hex format)
   final String? primaryColor;
+  
+  /// Optional secondary color (hex format)
   final String? secondaryColor;
 
+  /// Creates a CookieBannerUI widget.
   const CookieBannerUI({
     super.key,
     required this.banner,

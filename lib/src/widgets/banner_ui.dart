@@ -1,4 +1,3 @@
-/// BannerUI - Flutter banner UI widget
 import 'package:flutter/material.dart' hide Banner;
 import '../models/banner.dart' as models;
 import 'modern_banner_header.dart';
@@ -6,17 +5,54 @@ import 'modern_purpose_card.dart';
 import 'modern_banner_footer.dart';
 import 'modern_banner_actions.dart';
 
+/// Standard consent banner UI widget.
+///
+/// Displays a consent banner with purposes, data elements, and action buttons.
+/// This widget is used for standard consent collection flows.
+///
+/// Example:
+/// ```dart
+/// BannerUI(
+///   banner: bannerData,
+///   companyName: 'My Company',
+///   onChangePurpose: (purposeId, status) {
+///     // Handle purpose status change
+///   },
+///   onRejectAll: () => print('Rejected all'),
+///   onConsentAll: () => print('Consented all'),
+///   onAcceptSelected: () => print('Accepted selected'),
+/// )
+/// ```
 class BannerUI extends StatelessWidget {
+  /// Banner configuration data from the API
   final models.Banner banner;
+  
+  /// Company name to display in the banner
   final String companyName;
+  
+  /// Optional company logo URL
   final String? logoUrl;
+  
+  /// Callback when a purpose's consent status changes
+  /// Parameters: (purposeId, newStatus)
   final Function(String, String) onChangePurpose;
+  
+  /// Callback when user clicks "Reject All"
   final VoidCallback onRejectAll;
+  
+  /// Callback when user clicks "Consent All"
   final VoidCallback onConsentAll;
+  
+  /// Callback when user clicks "Accept Selected"
   final VoidCallback onAcceptSelected;
+  
+  /// Optional primary color for buttons (hex format, e.g., '#3b82f6')
   final String? primaryColor;
+  
+  /// Optional secondary color (hex format)
   final String? secondaryColor;
 
+  /// Creates a BannerUI widget.
   const BannerUI({
     super.key,
     required this.banner,

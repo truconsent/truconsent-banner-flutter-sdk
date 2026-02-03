@@ -1,14 +1,40 @@
-/// NativeRightCenter - Native Flutter implementation of Rights Center
-/// Replaces WebView with native Flutter widgets
 import 'package:flutter/material.dart';
 import '../services/rights_center_api.dart';
 
+/// Native Flutter implementation of Rights Center.
+///
+/// Replaces WebView with native Flutter widgets for better performance and
+/// mobile experience. Provides a comprehensive rights management interface
+/// with native tabs for:
+/// - Consent: View and manage all consent records
+/// - Rights: Exercise data rights (deletion, download)
+/// - Transparency: View transparency information
+/// - DPO: Data Protection Officer contact information
+/// - Nominee: Appoint and manage nominees
+/// - Grievance: Submit and view grievance tickets
+///
+/// Example:
+/// ```dart
+/// NativeRightCenter(
+///   userId: 'user-123',
+///   apiKey: 'your-api-key',
+///   organizationId: 'your-org-id',
+/// )
+/// ```
 class NativeRightCenter extends StatefulWidget {
+  /// User ID for rights center access
   final String userId;
+  
+  /// Optional TruConsent API key for authentication
   final String? apiKey;
+  
+  /// Optional organization ID
   final String? organizationId;
+  
+  /// Optional API base URL. Defaults to production URL if not provided.
   final String? apiBaseUrl;
 
+  /// Creates a NativeRightCenter widget.
   const NativeRightCenter({
     super.key,
     required this.userId,

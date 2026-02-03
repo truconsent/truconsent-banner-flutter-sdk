@@ -78,17 +78,43 @@ class Banner {
   }
 }
 
+/// Represents a consent purpose in the banner.
+///
+/// A purpose defines what data processing activity the user is consenting to.
+/// Each purpose can be mandatory or optional, and contains associated data
+/// elements, processing activities, legal entities, and tools.
 class Purpose {
+  /// Unique identifier for the purpose
   final String id;
+  
+  /// Display name of the purpose
   final String name;
+  
+  /// Description of what this purpose entails
   final String description;
+  
+  /// Whether this purpose is mandatory (cannot be declined)
   final bool isMandatory;
-  final String consented; // 'accepted', 'declined', 'pending'
+  
+  /// Current consent status: 'accepted', 'declined', or 'pending'
+  final String consented;
+  
+  /// Expiry period for the consent (e.g., '1 Year')
   final String expiryPeriod;
+  
+  /// Optional human-readable expiry label
   final String? expiryLabel;
+  
+  /// Associated data elements for this purpose
   final List<DataElement>? dataElements;
+  
+  /// Associated processing activities
   final List<ProcessingActivity>? processingActivities;
+  
+  /// Associated legal entities
   final List<LegalEntity>? legalEntities;
+  
+  /// Associated tools/technologies
   final List<Tool>? tools;
 
   Purpose({
@@ -142,10 +168,21 @@ class Purpose {
   }
 }
 
+/// Represents a data element (type of personal data) collected.
+///
+/// Data elements define what types of personal information are processed
+/// for a given purpose (e.g., email, phone number, location).
 class DataElement {
+  /// Unique identifier for the data element
   final String id;
+  
+  /// Display name of the data element
   final String name;
+  
+  /// Optional description of the data element
   final String? description;
+  
+  /// Optional display identifier
   final String? displayId;
 
   DataElement({
@@ -165,10 +202,21 @@ class DataElement {
   }
 }
 
+/// Represents a legal entity involved in data processing.
+///
+/// Legal entities are organizations or companies that process personal data
+/// for a given purpose.
 class LegalEntity {
+  /// Unique identifier for the legal entity
   final String id;
+  
+  /// Name of the legal entity
   final String name;
+  
+  /// Optional description
   final String? description;
+  
+  /// Optional display identifier
   final String? displayId;
 
   LegalEntity({
@@ -188,10 +236,21 @@ class LegalEntity {
   }
 }
 
+/// Represents a tool or technology used in data processing.
+///
+/// Tools define what technologies or services are used to process data
+/// for a given purpose (e.g., analytics tools, advertising platforms).
 class Tool {
+  /// Unique identifier for the tool
   final String id;
+  
+  /// Name of the tool
   final String name;
+  
+  /// Optional description
   final String? description;
+  
+  /// Optional display identifier
   final String? displayId;
 
   Tool({
@@ -211,10 +270,21 @@ class Tool {
   }
 }
 
+/// Represents a processing activity performed on personal data.
+///
+/// Processing activities define what operations are performed on data
+/// (e.g., collection, storage, analysis, sharing).
 class ProcessingActivity {
+  /// Unique identifier for the processing activity
   final String id;
+  
+  /// Name of the processing activity
   final String name;
+  
+  /// Optional description
   final String? description;
+  
+  /// Optional display identifier
   final String? displayId;
 
   ProcessingActivity({
@@ -234,10 +304,20 @@ class ProcessingActivity {
   }
 }
 
+/// Represents an asset associated with the banner.
+///
+/// Assets can include logos, images, or other resources displayed in the banner.
 class Asset {
+  /// Unique identifier for the asset
   final String id;
+  
+  /// Name of the asset
   final String name;
+  
+  /// Optional description
   final String? description;
+  
+  /// Type of asset (e.g., 'logo', 'image')
   final String? assetType;
 
   Asset({
@@ -257,9 +337,18 @@ class Asset {
   }
 }
 
+/// Configuration for cookie consent.
+///
+/// Contains cookie definitions and selected data elements/processing activities
+/// for cookie consent flows.
 class CookieConfig {
+  /// List of cookies defined in the configuration
   final List<Cookie>? cookies;
+  
+  /// IDs of selected data elements for cookie consent
   final List<String>? selectedDataElementIds;
+  
+  /// IDs of selected processing activities for cookie consent
   final List<String>? selectedProcessingActivityIds;
 
   CookieConfig({
@@ -285,11 +374,23 @@ class CookieConfig {
   }
 }
 
+/// Represents a cookie definition in cookie consent configuration.
+///
+/// Defines a cookie's properties including name, category, domain, and expiry.
 class Cookie {
+  /// Optional cookie identifier
   final String? id;
+  
+  /// Cookie name
   final String? name;
+  
+  /// Cookie category (e.g., 'essential', 'analytics', 'advertising')
   final String? category;
+  
+  /// Domain where the cookie is set
   final String? domain;
+  
+  /// Cookie expiry period
   final String? expiry;
 
   Cookie({
@@ -311,17 +412,42 @@ class Cookie {
   }
 }
 
+/// Banner display settings and customization options.
+///
+/// Contains UI customization settings for the consent banner including colors,
+/// fonts, text content, and display options.
 class BannerSettings {
+  /// Font type/family for the banner
   final String? fontType;
+  
+  /// Font size for the banner
   final String? fontSize;
+  
+  /// Primary color for buttons and accents (hex format)
   final String? primaryColor;
+  
+  /// Secondary color (hex format)
   final String? secondaryColor;
+  
+  /// Text for the main action button
   final String? actionButtonText;
+  
+  /// Warning text to display
   final String? warningText;
+  
+  /// Logo URL to display in the banner
   final String? logoUrl;
+  
+  /// Banner title text
   final String? bannerTitle;
+  
+  /// Disclaimer text
   final String? disclaimerText;
+  
+  /// Footer text with links and information
   final String? footerText;
+  
+  /// Whether to show purposes in the banner
   final bool? showPurposes;
 
   BannerSettings({
@@ -355,10 +481,20 @@ class BannerSettings {
   }
 }
 
+/// Represents the organization that owns the consent banner.
+///
+/// Contains organization information including name, legal name, and trade name.
 class Organization {
+  /// Organization name
   final String name;
+  
+  /// Legal name of the organization
   final String? legalName;
+  
+  /// Trade name of the organization
   final String? tradeName;
+  
+  /// Organization logo URL
   final String? logoUrl;
 
   Organization({
@@ -378,11 +514,23 @@ class Organization {
   }
 }
 
+/// Enum representing the user's consent action.
+///
+/// Used to track what action the user took when interacting with the consent banner.
 enum ConsentAction {
+  /// User approved/accepted all purposes
   approved,
+  
+  /// User declined/rejected all purposes
   declined,
+  
+  /// User closed the banner without taking action
   noAction,
+  
+  /// User revoked previously given consent
   revoked,
+  
+  /// User accepted some purposes but not all (partial consent)
   partialConsent,
 }
 

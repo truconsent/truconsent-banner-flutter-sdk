@@ -1,4 +1,3 @@
-/// ConsentManager - Consent state management for Flutter
 import '../models/banner.dart';
 
 /// Updates a single purpose's consent status in the purposes list.
@@ -63,7 +62,21 @@ List<Purpose> acceptMandatoryPurposes(List<Purpose> purposes) {
   }).toList();
 }
 
-/// Determine consent action based on purpose states
+/// Determines the overall consent action based on purpose states.
+///
+/// Analyzes all purposes to determine if the user approved, declined, revoked,
+/// or provided partial consent. Can also detect revocation by comparing with
+/// previous purpose states.
+///
+/// Returns [ConsentAction.approved] if all purposes are accepted,
+/// [ConsentAction.declined] if all are declined,
+/// [ConsentAction.revoked] if any previously accepted purpose is now declined,
+/// or [ConsentAction.partialConsent] for mixed states.
+///
+/// Example:
+/// ```dart
+/// final action = determineConsentAction(purposes);
+/// ```
 ConsentAction determineConsentAction(
   List<Purpose> purposes, [
   List<Purpose>? previousPurposes,
@@ -102,24 +115,52 @@ ConsentAction determineConsentAction(
   return ConsentAction.partialConsent;
 }
 
-/// Get all accepted purposes
+/// Returns a list of all purposes that have been accepted.
+///
+/// Example:
+/// ```dart
+/// final accepted = getAcceptedPurposes(purposes);
+/// ```
 List<Purpose> getAcceptedPurposes(List<Purpose> purposes) {
   return purposes.where((p) => p.consented == 'accepted').toList();
 }
 
-/// Get all declined purposes
+/// Returns a list of all purposes that have been declined.
+///
+/// Example:
+/// ```dart
+/// final declined = getDeclinedPurposes(purposes);
+/// ```
 List<Purpose> getDeclinedPurposes(List<Purpose> purposes) {
   return purposes.where((p) => p.consented == 'declined').toList();
 }
 
-/// Check if any optional purposes are accepted
+/// Checks if any optional (non-mandatory) purposes have been accepted.
+///
+/// Returns `true` if at least one optional purpose is accepted.
+///
+/// Example:
+/// ```dart
+/// if (hasOptionalAccepted(purposes)) {
+///   // User accepted some optional purposes
+/// }
+/// ```
 bool hasOptionalAccepted(List<Purpose> purposes) {
   return purposes
       .where((p) => !p.isMandatory)
       .any((p) => p.consented == 'accepted');
 }
 
-/// Check if there are any mandatory purposes
+/// Checks if there are any mandatory purposes in the list.
+///
+/// Returns `true` if at least one purpose is marked as mandatory.
+///
+/// Example:
+/// ```dart
+/// if (hasMandatoryPurposes(purposes)) {
+///   // Banner contains mandatory purposes
+/// }
+/// ```
 bool hasMandatoryPurposes(List<Purpose> purposes) {
   return purposes.any((p) => p.isMandatory);
 }
