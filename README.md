@@ -2,6 +2,19 @@
 
 Flutter SDK for TruConsent consent banner. This package provides native Flutter widgets for displaying and managing consent banners in Flutter applications.
 
+## 📚 Documentation
+
+**👉 [Complete Integration Guide](INTEGRATION_GUIDE.md)** - Step-by-step guide with real-world examples from the Mars Money Flutter app.
+
+The integration guide includes:
+- Detailed installation instructions
+- Configuration setup
+- Consent Modal integration patterns
+- Rights Center implementation
+- Complete code examples
+- Troubleshooting guide
+- Best practices
+
 ## Installation
 
 Add this to your package's `pubspec.yaml` file:
