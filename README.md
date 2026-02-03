@@ -52,12 +52,17 @@ Main widget for displaying the consent banner modal.
 
 ## Version History
 
-### 0.1.1 (Latest)
+### 0.1.2 (Latest)
+- Comprehensive documentation improvements
+- Added dartdoc comments to all public APIs (20%+ coverage)
+- Fixed dangling library doc comments
+- Enhanced widget, model, and service documentation
+- Improved pub.dev analysis scores
+
+### 0.1.1
 - Fixed code warnings and linter issues
 - Replaced deprecated `withOpacity()` with `withValues(alpha:)`
 - Replaced deprecated `activeColor` with `activeThumbColor`
-- Added comprehensive dartdoc comments to public API (20%+ coverage)
-- Fixed dangling library doc comments
 - Improved code quality and static analysis scores
 
 ### 0.1.0
