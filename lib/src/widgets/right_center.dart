@@ -5,6 +5,10 @@ import 'package:http/http.dart' as http;
 
 /// Rights Center widget using WebView implementation.
 ///
+/// NOTE: [NativeRightCenter] is the preferred implementation. It uses the
+/// correct TruConsent API endpoints and does not depend on a Supabase edge
+/// function. Use [RightCenter] only if you need the legacy WebView embed.
+///
 /// For stability and parity with the web demo (iframe embed), this widget
 /// renders the hosted Rights Center inside a WebView.
 ///

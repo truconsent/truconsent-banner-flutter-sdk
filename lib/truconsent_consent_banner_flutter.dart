@@ -7,6 +7,7 @@ export 'src/widgets/banner_ui.dart';
 export 'src/widgets/cookie_banner_ui.dart';
 export 'src/widgets/right_center.dart';
 export 'src/widgets/native_right_center.dart';
+export 'src/services/rights_center_api.dart' show RightsCenterSettings, RightsCenterApi;
 export 'src/models/banner.dart';
 export 'src/services/banner_service.dart';
 export 'src/services/consent_manager.dart';

@@ -7,12 +7,14 @@ class ModernPurposeCard extends StatefulWidget {
   final models.Purpose purpose;
   final models.Banner banner;
   final Function(String, String) onToggle;
+  final bool readOnly;
 
   const ModernPurposeCard({
     super.key,
     required this.purpose,
     required this.banner,
     required this.onToggle,
+    this.readOnly = false,
   });
 
   @override
@@ -143,12 +145,14 @@ class _ModernPurposeCardState extends State<ModernPurposeCard> {
                     scale: isMobile ? 0.8 : 1.0,
                     child: Switch(
                       value: isAccepted,
-                      onChanged: (value) {
-                        widget.onToggle(
-                          widget.purpose.id,
-                          value ? 'accepted' : 'declined',
-                        );
-                      },
+                      onChanged: widget.readOnly || widget.purpose.isMandatory || widget.purpose.isLegitimate
+                          ? null
+                          : (value) {
+                              widget.onToggle(
+                                widget.purpose.id,
+                                value ? 'accepted' : 'declined',
+                              );
+                            },
                       activeThumbColor: Colors.green[600],
                       inactiveThumbColor: Colors.grey[400],
                     ),

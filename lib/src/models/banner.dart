@@ -2,6 +2,42 @@
 ///
 /// Contains all banner data including purposes, data elements, processing activities,
 /// and banner settings.
+
+/// Enum representing the banner case based on purpose types.
+enum BannerCase {
+  /// Has both notice/legitimate AND consent purposes
+  tabbed,
+  /// Has only consent purposes
+  normal,
+  /// Has only legitimate/notice purposes
+  noticeOnly,
+}
+
+/// Derived UI state for rendering the banner.
+class UIState {
+  final bool noticeOnly;
+  final bool consentOnly;
+  final bool isHCase;
+  final bool hasRequiredConsent;
+  final BannerCase bannerCase;
+  final List<Purpose> noticePurposes;
+  final List<Purpose> consentPurposes;
+  final List<Purpose> mandatoryConsentPurposes;
+  final List<Purpose> optionalConsentPurposes;
+
+  UIState({
+    required this.noticeOnly,
+    required this.consentOnly,
+    required this.isHCase,
+    required this.hasRequiredConsent,
+    required this.bannerCase,
+    required this.noticePurposes,
+    required this.consentPurposes,
+    required this.mandatoryConsentPurposes,
+    required this.optionalConsentPurposes,
+  });
+}
+
 class Banner {
   final String bannerId;
   final String collectionPoint;
@@ -20,6 +56,15 @@ class Banner {
   final Organization? organization;
   final String? organizationName;
 
+  // Re-consent fields
+  final bool reconsentMode;
+  final String? reconsentCampaignId;
+  final String? reconsentUiMode;
+  final Map<String, dynamic>? versionDiff;
+  final String? reconsentSource;
+  final String? expiryReconsentRequestId;
+  final String? consentStatus;
+
   Banner({
     required this.bannerId,
     required this.collectionPoint,
@@ -37,6 +82,13 @@ class Banner {
     this.bannerSettings,
     this.organization,
     this.organizationName,
+    this.reconsentMode = false,
+    this.reconsentCampaignId,
+    this.reconsentUiMode,
+    this.versionDiff,
+    this.reconsentSource,
+    this.expiryReconsentRequestId,
+    this.consentStatus,
   });
 
   factory Banner.fromJson(Map<String, dynamic> json) {
@@ -74,54 +126,79 @@ class Banner {
           ? Organization.fromJson(json['organization'])
           : null,
       organizationName: json['organization_name'],
+      reconsentMode: json['reconsent_mode'] == true,
+      reconsentCampaignId: json['reconsent_campaign_id'],
+      reconsentUiMode: json['reconsent_ui_mode'],
+      versionDiff: json['version_diff'] as Map<String, dynamic>?,
+      reconsentSource: json['reconsent_source'],
+      expiryReconsentRequestId: json['expiry_reconsent_request_id'],
+      consentStatus: json['consent_status'] ?? json['data']?['consentStatus'],
     );
   }
 }
 
 /// Represents a consent purpose in the banner.
-///
-/// A purpose defines what data processing activity the user is consenting to.
-/// Each purpose can be mandatory or optional, and contains associated data
-/// elements, processing activities, legal entities, and tools.
 class Purpose {
   /// Unique identifier for the purpose
   final String id;
-  
+
   /// Display name of the purpose
   final String name;
-  
+
   /// Description of what this purpose entails
   final String description;
-  
+
   /// Whether this purpose is mandatory (cannot be declined)
   final bool isMandatory;
-  
-  /// Current consent status: 'accepted', 'declined', or 'pending'
+
+  /// Whether this purpose is legitimate interest (notice basis)
+  final bool isLegitimate;
+
+  /// Current consent status: 'accepted', 'declined', 'shown', or 'pending'
   final String consented;
-  
+
   /// Expiry period for the consent (e.g., '1 Year')
   final String expiryPeriod;
-  
+
   /// Optional human-readable expiry label
   final String? expiryLabel;
-  
+
   /// Associated data elements for this purpose
   final List<DataElement>? dataElements;
-  
+
   /// Associated processing activities
   final List<ProcessingActivity>? processingActivities;
-  
+
   /// Associated legal entities
   final List<LegalEntity>? legalEntities;
-  
+
   /// Associated tools/technologies
   final List<Tool>? tools;
+
+  /// Legal basis: 'consent' or 'notice'
+  final String legalBasis;
+
+  /// Whether consent can be withdrawn (non-legitimate, recurring)
+  final bool withdrawable;
+
+  /// Whether this is a dynamic purpose
+  final bool isDynamic;
+
+  /// Frequency: 'recurring', 'one_time', etc.
+  final String? frequency;
+
+  /// Purpose type: 'consent' or 'legitimate_interest'
+  final String? purposeType;
+
+  /// Default selection: 'all', 'none', 'mandatory_only'
+  final String? defaultSelection;
 
   Purpose({
     required this.id,
     required this.name,
     required this.description,
     required this.isMandatory,
+    this.isLegitimate = false,
     required this.consented,
     required this.expiryPeriod,
     this.expiryLabel,
@@ -129,15 +206,39 @@ class Purpose {
     this.processingActivities,
     this.legalEntities,
     this.tools,
+    this.legalBasis = 'consent',
+    this.withdrawable = false,
+    this.isDynamic = false,
+    this.frequency,
+    this.purposeType,
+    this.defaultSelection,
   });
 
   factory Purpose.fromJson(Map<String, dynamic> json) {
+    final isLegit = json['is_legitimate'] == true;
+    final isMand = json['is_mandatory'] == true;
+    final freq = json['frequency'] as String?;
+    final basis = isLegit ? 'notice' : 'consent';
+    final canWithdraw = !isLegit && freq == 'recurring';
+    final isDyn = json['is_dynamic'] == true;
+    final defSel = json['default_selection'] as String?;
+
+    String initialConsented;
+    if (isLegit || isMand) {
+      initialConsented = 'accepted';
+    } else if (defSel == 'all') {
+      initialConsented = 'accepted';
+    } else {
+      initialConsented = 'declined';
+    }
+
     return Purpose(
       id: json['id'] ?? '',
       name: json['name'] ?? '',
       description: json['description'] ?? '',
-      isMandatory: json['is_mandatory'] ?? false,
-      consented: json['consented'] ?? 'declined',
+      isMandatory: isMand,
+      isLegitimate: isLegit,
+      consented: json['consented'] ?? initialConsented,
       expiryPeriod: json['expiry_period'] ?? '',
       expiryLabel: json['expiry_label'],
       dataElements: (json['data_elements'] as List<dynamic>?)
@@ -152,37 +253,55 @@ class Purpose {
       tools: (json['tools'] as List<dynamic>?)
           ?.map((t) => Tool.fromJson(t))
           .toList(),
+      legalBasis: basis,
+      withdrawable: canWithdraw,
+      isDynamic: isDyn,
+      frequency: freq,
+      purposeType: json['purpose_type'] as String?,
+      defaultSelection: defSel,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'name': name,
-      'description': description,
+      'purposeId': id,
+      'version': 'v1.0',
+      'consented': isLegitimate ? 'shown' : consented,
+      'purpose_type': isLegitimate ? 'legitimate_interest' : 'consent',
       'is_mandatory': isMandatory,
-      'consented': consented,
-      'expiry_period': expiryPeriod,
-      'expiry_label': expiryLabel,
     };
+  }
+
+  /// Copy with updated consent status
+  Purpose copyWith({String? consented}) {
+    return Purpose(
+      id: id,
+      name: name,
+      description: description,
+      isMandatory: isMandatory,
+      isLegitimate: isLegitimate,
+      consented: consented ?? this.consented,
+      expiryPeriod: expiryPeriod,
+      expiryLabel: expiryLabel,
+      dataElements: dataElements,
+      processingActivities: processingActivities,
+      legalEntities: legalEntities,
+      tools: tools,
+      legalBasis: legalBasis,
+      withdrawable: withdrawable,
+      isDynamic: isDynamic,
+      frequency: frequency,
+      purposeType: purposeType,
+      defaultSelection: defaultSelection,
+    );
   }
 }
 
 /// Represents a data element (type of personal data) collected.
-///
-/// Data elements define what types of personal information are processed
-/// for a given purpose (e.g., email, phone number, location).
 class DataElement {
-  /// Unique identifier for the data element
   final String id;
-  
-  /// Display name of the data element
   final String name;
-  
-  /// Optional description of the data element
   final String? description;
-  
-  /// Optional display identifier
   final String? displayId;
 
   DataElement({
@@ -203,20 +322,10 @@ class DataElement {
 }
 
 /// Represents a legal entity involved in data processing.
-///
-/// Legal entities are organizations or companies that process personal data
-/// for a given purpose.
 class LegalEntity {
-  /// Unique identifier for the legal entity
   final String id;
-  
-  /// Name of the legal entity
   final String name;
-  
-  /// Optional description
   final String? description;
-  
-  /// Optional display identifier
   final String? displayId;
 
   LegalEntity({
@@ -237,20 +346,10 @@ class LegalEntity {
 }
 
 /// Represents a tool or technology used in data processing.
-///
-/// Tools define what technologies or services are used to process data
-/// for a given purpose (e.g., analytics tools, advertising platforms).
 class Tool {
-  /// Unique identifier for the tool
   final String id;
-  
-  /// Name of the tool
   final String name;
-  
-  /// Optional description
   final String? description;
-  
-  /// Optional display identifier
   final String? displayId;
 
   Tool({
@@ -271,20 +370,10 @@ class Tool {
 }
 
 /// Represents a processing activity performed on personal data.
-///
-/// Processing activities define what operations are performed on data
-/// (e.g., collection, storage, analysis, sharing).
 class ProcessingActivity {
-  /// Unique identifier for the processing activity
   final String id;
-  
-  /// Name of the processing activity
   final String name;
-  
-  /// Optional description
   final String? description;
-  
-  /// Optional display identifier
   final String? displayId;
 
   ProcessingActivity({
@@ -305,19 +394,10 @@ class ProcessingActivity {
 }
 
 /// Represents an asset associated with the banner.
-///
-/// Assets can include logos, images, or other resources displayed in the banner.
 class Asset {
-  /// Unique identifier for the asset
   final String id;
-  
-  /// Name of the asset
   final String name;
-  
-  /// Optional description
   final String? description;
-  
-  /// Type of asset (e.g., 'logo', 'image')
   final String? assetType;
 
   Asset({
@@ -338,17 +418,9 @@ class Asset {
 }
 
 /// Configuration for cookie consent.
-///
-/// Contains cookie definitions and selected data elements/processing activities
-/// for cookie consent flows.
 class CookieConfig {
-  /// List of cookies defined in the configuration
   final List<Cookie>? cookies;
-  
-  /// IDs of selected data elements for cookie consent
   final List<String>? selectedDataElementIds;
-  
-  /// IDs of selected processing activities for cookie consent
   final List<String>? selectedProcessingActivityIds;
 
   CookieConfig({
@@ -375,22 +447,11 @@ class CookieConfig {
 }
 
 /// Represents a cookie definition in cookie consent configuration.
-///
-/// Defines a cookie's properties including name, category, domain, and expiry.
 class Cookie {
-  /// Optional cookie identifier
   final String? id;
-  
-  /// Cookie name
   final String? name;
-  
-  /// Cookie category (e.g., 'essential', 'analytics', 'advertising')
   final String? category;
-  
-  /// Domain where the cookie is set
   final String? domain;
-  
-  /// Cookie expiry period
   final String? expiry;
 
   Cookie({
@@ -413,42 +474,29 @@ class Cookie {
 }
 
 /// Banner display settings and customization options.
-///
-/// Contains UI customization settings for the consent banner including colors,
-/// fonts, text content, and display options.
 class BannerSettings {
-  /// Font type/family for the banner
   final String? fontType;
-  
-  /// Font size for the banner
   final String? fontSize;
-  
-  /// Primary color for buttons and accents (hex format)
   final String? primaryColor;
-  
-  /// Secondary color (hex format)
   final String? secondaryColor;
-  
-  /// Text for the main action button
   final String? actionButtonText;
-  
-  /// Warning text to display
   final String? warningText;
-  
-  /// Logo URL to display in the banner
   final String? logoUrl;
-  
-  /// Banner title text
   final String? bannerTitle;
-  
-  /// Disclaimer text
   final String? disclaimerText;
-  
-  /// Footer text with links and information
   final String? footerText;
-  
-  /// Whether to show purposes in the banner
   final bool? showPurposes;
+
+  // H-Case settings
+  final String? hCaseLoggingStrategy;
+  final String? hCaseWarningMessage;
+  final String? hCaseProceedButtonText;
+  final String? hCaseBackButtonText;
+  final String? hCaseProceedButtonColor;
+  final String? hCaseBackButtonColor;
+
+  // Default selection
+  final String? defaultSelection;
 
   BannerSettings({
     this.fontType,
@@ -462,6 +510,13 @@ class BannerSettings {
     this.disclaimerText,
     this.footerText,
     this.showPurposes,
+    this.hCaseLoggingStrategy,
+    this.hCaseWarningMessage,
+    this.hCaseProceedButtonText,
+    this.hCaseBackButtonText,
+    this.hCaseProceedButtonColor,
+    this.hCaseBackButtonColor,
+    this.defaultSelection,
   });
 
   factory BannerSettings.fromJson(Map<String, dynamic> json) {
@@ -477,24 +532,22 @@ class BannerSettings {
       disclaimerText: json['disclaimer_text'],
       footerText: json['footer_text'],
       showPurposes: json['show_purposes'],
+      hCaseLoggingStrategy: json['h_case_logging_strategy'],
+      hCaseWarningMessage: json['h_case_warning_message'],
+      hCaseProceedButtonText: json['h_case_proceed_button_text'],
+      hCaseBackButtonText: json['h_case_back_button_text'],
+      hCaseProceedButtonColor: json['h_case_proceed_button_color'],
+      hCaseBackButtonColor: json['h_case_back_button_color'],
+      defaultSelection: json['default_selection'],
     );
   }
 }
 
 /// Represents the organization that owns the consent banner.
-///
-/// Contains organization information including name, legal name, and trade name.
 class Organization {
-  /// Organization name
   final String name;
-  
-  /// Legal name of the organization
   final String? legalName;
-  
-  /// Trade name of the organization
   final String? tradeName;
-  
-  /// Organization logo URL
   final String? logoUrl;
 
   Organization({
@@ -515,39 +568,30 @@ class Organization {
 }
 
 /// Enum representing the user's consent action.
-///
-/// Used to track what action the user took when interacting with the consent banner.
 enum ConsentAction {
-  /// User approved/accepted all purposes
   approved,
-  
-  /// User declined/rejected all purposes
   declined,
-  
-  /// User closed the banner without taking action
   noAction,
-  
-  /// User revoked previously given consent
   revoked,
-  
-  /// User accepted some purposes but not all (partial consent)
   partialConsent,
+  noticeShown,
 }
 
 extension ConsentActionExtension on ConsentAction {
   String get value {
     switch (this) {
       case ConsentAction.approved:
-        return 'approved';
+        return 'Approved';
       case ConsentAction.declined:
-        return 'declined';
+        return 'Declined';
       case ConsentAction.noAction:
-        return 'no_action';
+        return 'No Action';
       case ConsentAction.revoked:
-        return 'revoked';
+        return 'Revoked';
       case ConsentAction.partialConsent:
-        return 'partial_consent';
+        return 'Partially Consented';
+      case ConsentAction.noticeShown:
+        return 'notice_shown';
     }
   }
 }
-

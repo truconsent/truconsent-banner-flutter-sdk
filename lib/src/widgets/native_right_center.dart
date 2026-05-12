@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/rights_center_api.dart';
 
 /// Native Flutter implementation of Rights Center.
 ///
-/// Replaces WebView with native Flutter widgets for better performance and
-/// mobile experience. Provides a comprehensive rights management interface
-/// with native tabs for:
+/// Provides a comprehensive rights management interface with native tabs for:
 /// - Consent: View and manage all consent records
-/// - Rights: Exercise data rights (deletion, download)
-/// - Transparency: View transparency information
-/// - DPO: Data Protection Officer contact information
+/// - Rights: Exercise data rights (access, deletion)
 /// - Nominee: Appoint and manage nominees
 /// - Grievance: Submit and view grievance tickets
+/// - Transparency: View transparency information
+/// - DPO: Data Protection Officer contact information
+///
+/// Tabs are shown/hidden based on [RightsCenterSettings] fetched from the API.
 ///
 /// Example:
 /// ```dart
@@ -19,28 +20,25 @@ import '../services/rights_center_api.dart';
 ///   userId: 'user-123',
 ///   apiKey: 'your-api-key',
 ///   organizationId: 'your-org-id',
+///   apiUrl: 'https://trukit-dev.truconsent.io',
 /// )
 /// ```
 class NativeRightCenter extends StatefulWidget {
-  /// User ID for rights center access
   final String userId;
-  
-  /// Optional TruConsent API key for authentication
   final String? apiKey;
-  
-  /// Optional organization ID
   final String? organizationId;
-  
-  /// Optional API base URL. Defaults to production URL if not provided.
-  final String? apiBaseUrl;
+  final String? apiUrl;
+  final String? assetId;
+  final String? authToken;
 
-  /// Creates a NativeRightCenter widget.
   const NativeRightCenter({
     super.key,
     required this.userId,
     this.apiKey,
     this.organizationId,
-    this.apiBaseUrl,
+    this.apiUrl,
+    this.assetId,
+    this.authToken,
   });
 
   @override
@@ -48,26 +46,32 @@ class NativeRightCenter extends StatefulWidget {
 }
 
 class _NativeRightCenterState extends State<NativeRightCenter> {
-  int _activeTabIndex = 0;
   late RightsCenterApi _api;
 
-  // Consent state
-  List<ConsentGroup> _consentGroups = [];
-  List<ConsentGroup> _initialConsentGroups = [];
-  bool _consentsLoading = true;
+  // Global
+  bool _isInitializing = true;
+  RightsCenterSettings _settings = RightsCenterSettings.defaults;
+  String _activeTab = 'Consent';
+
+  // Consent
+  List<Map<String, dynamic>> _consents = [];
+  Map<String, String> _initialConsents = {};
+  bool _consentsLoading = false;
   bool _dirty = false;
-  Map<String, dynamic>? _modalData;
-  // Rights state
+  Set<String> _changedPurposeIds = {};
+  bool _showSaveSuccess = false;
 
-  // DPO state
+  // Rights
+  bool _showAccessModal = false;
+  bool _showDeleteModal = false;
+  bool _accessConfirmed = false;
+  bool _deleteConfirmed = false;
+
+  // DPO
   DPOInfo? _dpoInfo;
-  bool _dpoLoading = true;
-  String? _dpoError;
 
-  // Nominee state
+  // Nominee
   List<Nominee> _nominees = [];
-  bool _nomineeLoading = true;
-  String? _nomineeError;
   bool _editing = false;
   final _nomineeFormKey = GlobalKey<FormState>();
   final Map<String, String> _nomineeForm = {
@@ -78,10 +82,8 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
     'purpose_of_appointment': '',
   };
 
-  // Grievance state
+  // Grievance
   List<GrievanceTicket> _tickets = [];
-  bool _ticketsLoading = true;
-  String? _ticketsError;
   bool _showGrievanceForm = false;
   final _grievanceFormKey = GlobalKey<FormState>();
   final Map<String, String> _grievanceForm = {
@@ -94,369 +96,155 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
   void initState() {
     super.initState();
     _api = RightsCenterApi(
-      baseUrl: widget.apiBaseUrl ??
-          'https://rdwcymn5poo6zbzg5fa5xzjsqy0zzcpm.lambda-url.ap-south-1.on.aws/banners',
+      apiUrl: widget.apiUrl ?? 'https://trukit-dev.truconsent.io',
       apiKey: widget.apiKey ?? '',
-      organizationId: widget.organizationId ?? 'mars-money',
+      organizationId: widget.organizationId ?? '',
+      userId: widget.userId,
     );
-    _loadAllData();
+    _bootstrap();
   }
 
-  Future<void> _loadAllData() async {
+  Future<void> _bootstrap() async {
+    setState(() => _isInitializing = true);
     await Future.wait([
-      _fetchUserConsents(),
+      _fetchSettings(),
       _fetchDPO(),
       _fetchNominees(),
-      _fetchGrievances(),
+      _fetchTickets(),
+      _fetchUserConsents(),
     ]);
+    if (mounted) setState(() => _isInitializing = false);
   }
 
-  String _normalizeStatus(dynamic val) {
-    if (val == 'accepted' || val == 'declined') return val;
-    if (val == 'approved') return 'accepted';
-    if (val == 'rejected') return 'declined';
-    if (val is bool) return val ? 'accepted' : 'declined';
-    if (val is String) {
-      final v = val.toLowerCase();
-      if (v == 'yes' || v == 'true') return 'accepted';
-      if (v == 'no' || v == 'false') return 'declined';
-    }
-    return 'pending';
-  }
-
-  // Fetch consents - matches web package logic exactly
-  Future<void> _fetchUserConsents() async {
-    setState(() => _consentsLoading = true);
+  Future<void> _fetchSettings() async {
     try {
-      debugPrint('[NativeRightCenter] Fetching consents for user: ${widget.userId}');
-      debugPrint('[NativeRightCenter] Starting dual fetch: /user/{userId} and getAllBanners()');
-      
-      List<ConsentGroup> userRecords;
-      List<ConsentGroup> allBanners;
-      
-      try {
-        userRecords = await _api.getUserConsents(widget.userId);
-      } catch (err) {
-        debugPrint('[NativeRightCenter] Error fetching user consents, using empty array: $err');
-        userRecords = [];
-      }
-      
-      try {
-        allBanners = await _api.getAllBanners();
-      } catch (err) {
-        debugPrint('[NativeRightCenter] Error fetching all banners, using empty array: $err');
-        allBanners = [];
-      }
-
-      debugPrint('[NativeRightCenter] Data received - User records: ${userRecords.length}, All banners: ${allBanners.length}');
-
-      // Create map of user records by collection_point (matches web package line 227-230)
-      final userByCp = <String, ConsentGroup>{};
-      for (final cp in userRecords) {
-        userByCp[cp.collection_point] = cp;
-      }
-
-      debugPrint('[NativeRightCenter] User records mapped to ${userByCp.length} collection points');
-
-      // Merge all banners with user-specific status (matches web package line 232-258)
-      final merged = allBanners.map((cp) {
-        final userCp = userByCp[cp.collection_point];
-        final shownToPrincipal = userCp?.shown_to_principal ?? false;
-
-        // Only keep explicit statuses from user (accepted/declined). Ignore 'pending' (matches web package line 237-242)
-        final userPurposeStatus = <String, String>{};
-        for (final p in userCp?.purposes ?? []) {
-          final status = _normalizeStatus(p.consented);
-          if (status == 'accepted' || status == 'declined') {
-            userPurposeStatus[p.id] = status;
-          }
-        }
-
-        // Map purposes and determine status (matches web package line 243-256)
-        final purposes = cp.purposes.map((p) {
-          final hasUser = userPurposeStatus.containsKey(p.id);
-          String status;
-          if (hasUser) {
-            // User has explicit status
-            status = userPurposeStatus[p.id]!;
-          } else if (shownToPrincipal) {
-            // If the collection point was shown and user has no explicit status logged for this purpose,
-            // treat it as accepted (implicit approval at time of show) - matches web package line 248-251
-            status = 'accepted';
-          } else {
-            // Default to declined if not shown and no user status
-            final normalized = _normalizeStatus(p.consented);
-            status = normalized.isNotEmpty ? normalized : 'declined';
-          }
-          return Purpose(
-            id: p.id,
-            name: p.name,
-            description: p.description,
-            expiry_period: p.expiry_period,
-            is_mandatory: p.is_mandatory,
-            consented: status,
-          );
-        }).toList();
-
-        return ConsentGroup(
-          collection_point: cp.collection_point,
-          title: cp.title,
-          purposes: purposes,
-          data_elements: cp.data_elements,
-          shown_to_principal: shownToPrincipal,
-        );
-      }).toList();
-
-      debugPrint('[NativeRightCenter] Merged result: ${merged.length} collection points');
-      if (merged.isNotEmpty) {
-        final totalPurposes = merged.fold<int>(0, (sum, cp) => sum + cp.purposes.length);
-        debugPrint('[NativeRightCenter] Total purposes across all collection points: $totalPurposes');
-      }
-
-      setState(() {
-        _consentGroups = merged;
-        _initialConsentGroups = merged.map((cg) {
-          return ConsentGroup(
-            collection_point: cg.collection_point,
-            title: cg.title,
-            purposes: cg.purposes.map((p) {
-              return Purpose(
-                id: p.id,
-                name: p.name,
-                description: p.description,
-                expiry_period: p.expiry_period,
-                is_mandatory: p.is_mandatory,
-                consented: p.consented,
-              );
-            }).toList(),
-            data_elements: cg.data_elements,
-            shown_to_principal: cg.shown_to_principal,
-          );
-        }).toList();
-      });
-      debugPrint('[NativeRightCenter] Consents loaded successfully: ${merged.length} groups');
+      final s = await _api.getRightsCenterSettings(assetId: widget.assetId);
+      if (mounted) setState(() => _settings = s);
     } catch (e) {
-      debugPrint('[NativeRightCenter] Error fetching consents: $e');
-      // Don't show snackbar, just log and set empty state
-      setState(() {
-        _consentGroups = [];
-        _initialConsentGroups = [];
-      });
-    } finally {
+      debugPrint('[NativeRightCenter] fetchSettings error: $e');
+    }
+  }
+
+  Future<void> _fetchUserConsents() async {
+    if (mounted) setState(() => _consentsLoading = true);
+    try {
+      final list = await _api.getUserConsentsFlat(
+        widget.userId,
+        assetId: widget.assetId,
+      );
       if (mounted) {
-        setState(() => _consentsLoading = false);
+        setState(() {
+          _consents = list;
+          _initialConsents = {
+            for (final p in list) p['id'].toString(): p['consented'].toString()
+          };
+          _dirty = false;
+          _changedPurposeIds = {};
+        });
       }
+    } catch (e) {
+      debugPrint('[NativeRightCenter] fetchUserConsents error: $e');
+      if (mounted) setState(() => _consents = []);
+    } finally {
+      if (mounted) setState(() => _consentsLoading = false);
     }
   }
 
   Future<void> _fetchDPO() async {
-    setState(() {
-      _dpoLoading = true;
-      _dpoError = null;
-    });
     try {
-      DPOInfo? info;
-      try {
-        info = await _api.getDPOInfo();
-      } catch (err) {
-        debugPrint('[NativeRightCenter] Error fetching DPO, using null: $err');
-        info = null;
-      }
-      setState(() => _dpoInfo = info);
+      final info = await _api.getDPOInfo();
+      if (mounted) setState(() => _dpoInfo = info);
     } catch (e) {
-      debugPrint('[NativeRightCenter] Error fetching DPO: $e');
-      setState(() {
-        _dpoError = 'Failed to load DPO information';
-        _dpoInfo = null;
-      });
-    } finally {
-      if (mounted) {
-        setState(() => _dpoLoading = false);
-      }
+      debugPrint('[NativeRightCenter] fetchDPO error: $e');
     }
   }
 
   Future<void> _fetchNominees() async {
-    setState(() {
-      _nomineeLoading = true;
-      _nomineeError = null;
-    });
     try {
-      List<Nominee> data;
-      try {
-        data = await _api.getNominees(widget.userId);
-      } catch (err) {
-        debugPrint('[NativeRightCenter] Error fetching nominees, using empty array: $err');
-        data = [];
-      }
-      setState(() {
-        _nominees = data;
-        if (data.isNotEmpty) {
-          final n = data.first;
-          _nomineeForm['nominee_name'] = n.nominee_name;
-          _nomineeForm['relationship'] = n.relationship;
-          _nomineeForm['nominee_email'] = n.nominee_email;
-          _nomineeForm['nominee_mobile'] = n.nominee_mobile;
-          _nomineeForm['purpose_of_appointment'] = n.purpose_of_appointment ?? '';
-        }
-      });
-    } catch (e) {
-      debugPrint('[NativeRightCenter] Error fetching nominees: $e');
-      setState(() {
-        _nomineeError = 'Failed to load nominee information';
-        _nominees = [];
-      });
-    } finally {
+      final data = await _api.getNominees(widget.userId);
       if (mounted) {
-        setState(() => _nomineeLoading = false);
+        setState(() {
+          _nominees = data;
+          if (data.isNotEmpty) {
+            final n = data.first;
+            _nomineeForm['nominee_name'] = n.nominee_name;
+            _nomineeForm['relationship'] = n.relationship;
+            _nomineeForm['nominee_email'] = n.nominee_email;
+            _nomineeForm['nominee_mobile'] = n.nominee_mobile;
+            _nomineeForm['purpose_of_appointment'] = n.purpose_of_appointment ?? '';
+          }
+        });
       }
+    } catch (e) {
+      debugPrint('[NativeRightCenter] fetchNominees error: $e');
+      if (mounted) setState(() => _nominees = []);
     }
   }
 
-  Future<void> _fetchGrievances() async {
-    setState(() {
-      _ticketsLoading = true;
-      _ticketsError = null;
-    });
+  Future<void> _fetchTickets() async {
     try {
-      List<GrievanceTicket> data;
-      try {
-        data = await _api.getGrievanceTickets(widget.userId);
-      } catch (err) {
-        debugPrint('[NativeRightCenter] Error fetching grievances, using empty array: $err');
-        data = [];
-      }
-      setState(() => _tickets = data);
+      final data = await _api.getGrievanceTickets(widget.userId);
+      if (mounted) setState(() => _tickets = data);
     } catch (e) {
-      debugPrint('[NativeRightCenter] Error fetching grievances: $e');
-      setState(() {
-        _ticketsError = 'Failed to load grievance tickets';
-        _tickets = [];
-      });
-    } finally {
-      if (mounted) {
-        setState(() => _ticketsLoading = false);
-      }
+      debugPrint('[NativeRightCenter] fetchTickets error: $e');
+      if (mounted) setState(() => _tickets = []);
     }
   }
 
-  void _handleToggle(String consentId, String collectionId) {
+  // ─── Consent handlers ────────────────────────────────────────────────────────
+
+  void _toggleConsent(String id) {
     setState(() {
-      _consentGroups = _consentGroups.map((cp) {
-        if (cp.collection_point == collectionId) {
-          return ConsentGroup(
-            collection_point: cp.collection_point,
-            title: cp.title,
-            purposes: cp.purposes.map((p) {
-              if (p.id == consentId) {
-                return Purpose(
-                  id: p.id,
-                  name: p.name,
-                  description: p.description,
-                  expiry_period: p.expiry_period,
-                  is_mandatory: p.is_mandatory,
-                  consented: p.consented == 'accepted' ? 'declined' : 'accepted',
-                );
-              }
-              return p;
-            }).toList(),
-            data_elements: cp.data_elements,
-            shown_to_principal: cp.shown_to_principal,
-          );
+      _consents = _consents.map((p) {
+        if (p['id'].toString() == id) {
+          final cur = p['consented'] == 'accepted' ? 'declined' : 'accepted';
+          return {...p, 'consented': cur};
         }
-        return cp;
+        return p;
       }).toList();
-      _dirty = true;
+
+      // Track changed vs initial
+      final cur = _consents.firstWhere((p) => p['id'].toString() == id)['consented'];
+      final initial = _initialConsents[id] ?? 'declined';
+      if (cur != initial) {
+        _changedPurposeIds.add(id);
+      } else {
+        _changedPurposeIds.remove(id);
+      }
+      _dirty = _changedPurposeIds.isNotEmpty;
     });
   }
 
-  Future<void> _handleSave() async {
+  Future<void> _saveConsents() async {
     try {
-      final initialStateByCollection = <String, Map<String, String>>{};
-      for (final cp in _initialConsentGroups) {
-        final purposeMap = <String, String>{};
-        for (final p in cp.purposes) {
-          purposeMap[p.id] = p.consented;
-        }
-        initialStateByCollection[cp.collection_point] = purposeMap;
-      }
+      final changed = _consents
+          .where((p) => _changedPurposeIds.contains(p['id'].toString()))
+          .map((p) => Map<String, dynamic>.from(p))
+          .toList();
 
-      final byCollection = <String, List<Purpose>>{};
-      final changedByCollection = <String, List<String>>{};
-
-      for (final cp in _consentGroups) {
-        for (final p in cp.purposes) {
-          if (!byCollection.containsKey(cp.collection_point)) {
-            byCollection[cp.collection_point] = [];
-            changedByCollection[cp.collection_point] = [];
-          }
-          byCollection[cp.collection_point]!.add(p);
-
-          final collectionInitialState = initialStateByCollection[cp.collection_point];
-          final initialStatus = collectionInitialState?[p.id] ?? 'declined';
-
-          if (initialStatus != p.consented) {
-            changedByCollection[cp.collection_point]!.add(p.id);
-          }
-        }
-      }
-
-      await Future.wait(
-        byCollection.entries
-            .where((entry) => changedByCollection[entry.key]?.isNotEmpty ?? false)
-            .map((entry) {
-          final collectionId = entry.key;
-          final list = entry.value;
-          final changedIds = changedByCollection[collectionId]!.toSet();
-          final collectionInitialState = initialStateByCollection[collectionId];
-
-          final purposesPayload = list
-              .where((p) => changedIds.contains(p.id))
-              .map((p) {
-            final initialStatus = collectionInitialState?[p.id] ?? 'declined';
-            return {
-              'id': p.id,
-              'name': p.name,
-              'consented': p.consented,
-              'initialStatus': initialStatus,
-            };
-          }).toList();
-
-          final hasRevocation = purposesPayload.any(
-            (p) => p['initialStatus'] == 'accepted' && p['consented'] == 'declined',
-          );
-          final hasApproval = purposesPayload.any((p) => p['consented'] == 'accepted');
-
-          final action = hasRevocation ? 'revoked' : (hasApproval ? 'approved' : 'declined');
-
-          final payload = ConsentPayload(
-            userId: widget.userId,
-            purposes: purposesPayload.map((p) {
-              final copy = Map<String, dynamic>.from(p);
-              copy.remove('initialStatus');
-              return copy;
-            }).toList(),
-            action: action,
-            changedPurposes: changedByCollection[collectionId],
-          );
-
-          return _api.saveConsent(collectionId, payload);
-        }),
+      await _api.saveConsentToRightsCenter(
+        widget.userId,
+        changed,
+        assetId: widget.assetId,
       );
 
-      setState(() => _dirty = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Changes saved successfully')),
-        );
-      }
-      // Refresh consents after save - errors are handled gracefully in _fetchUserConsents
-      _fetchUserConsents().catchError((err) {
-        // Silently handle refresh errors - save was successful
-        debugPrint('[NativeRightCenter] Note: Error refreshing consents after save (this is non-critical): $err');
+      setState(() {
+        _dirty = false;
+        _changedPurposeIds = {};
+        _showSaveSuccess = true;
+        _initialConsents = {
+          for (final p in _consents) p['id'].toString(): p['consented'].toString()
+        };
       });
+
+      // Hide success banner after 3 s
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _showSaveSuccess = false);
+      });
+
+      await _fetchUserConsents();
     } catch (e) {
-      debugPrint('[NativeRightCenter] Error saving consents: $e');
+      debugPrint('[NativeRightCenter] saveConsents error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to save consent changes. Please try again.')),
@@ -465,12 +253,52 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
     }
   }
 
-  Future<void> _handleNomineeSubmit() async {
-    if (!_nomineeFormKey.currentState!.validate()) return;
+  // ─── Rights handlers ─────────────────────────────────────────────────────────
 
+  Future<void> _requestAccess() async {
+    try {
+      await _api.createAccessRequest(widget.userId, assetId: widget.assetId);
+      if (mounted) {
+        setState(() {
+          _accessConfirmed = true;
+          _showAccessModal = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('[NativeRightCenter] createAccessRequest error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to submit access request. Please try again.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _requestDeletion() async {
+    try {
+      await _api.createDeletionRequest(widget.userId, assetId: widget.assetId);
+      if (mounted) {
+        setState(() {
+          _deleteConfirmed = true;
+          _showDeleteModal = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('[NativeRightCenter] createDeletionRequest error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to submit deletion request. Please try again.')),
+        );
+      }
+    }
+  }
+
+  // ─── Nominee handlers ─────────────────────────────────────────────────────────
+
+  Future<void> _submitNominee() async {
+    if (!_nomineeFormKey.currentState!.validate()) return;
     final nominee = _nominees.isNotEmpty ? _nominees.first : null;
     final payload = Nominee(
-      user_id: widget.userId,
       nominee_name: _nomineeForm['nominee_name']!,
       relationship: _nomineeForm['relationship']!,
       nominee_email: _nomineeForm['nominee_email']!,
@@ -488,10 +316,8 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
           _editing = false;
         });
       } else {
-        final created = await _api.createNominee(payload);
-        setState(() {
-          _nominees = [created];
-        });
+        final created = await _api.createNominee(payload, widget.userId);
+        setState(() => _nominees = [created]);
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -499,7 +325,7 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
         );
       }
     } catch (e) {
-      debugPrint('[NativeRightCenter] Error saving nominee: $e');
+      debugPrint('[NativeRightCenter] submitNominee error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to save nominee. Please try again.')),
@@ -508,22 +334,19 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
     }
   }
 
-  Future<void> _handleDeleteNominee() async {
+  Future<void> _deleteNominee() async {
     final nominee = _nominees.isNotEmpty ? _nominees.first : null;
     if (nominee?.id == null) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Delete Nominee'),
         content: const Text('Are you sure you want to delete this nominee?'),
         actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () => Navigator.of(ctx).pop(true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Delete'),
           ),
@@ -536,14 +359,7 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
         await _api.deleteNominee(nominee!.id!);
         setState(() {
           _nominees = [];
-          _nomineeForm.clear();
-          _nomineeForm.addAll({
-            'nominee_name': '',
-            'relationship': '',
-            'nominee_email': '',
-            'nominee_mobile': '',
-            'purpose_of_appointment': '',
-          });
+          _nomineeForm.updateAll((_, __) => '');
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -551,7 +367,7 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
           );
         }
       } catch (e) {
-        debugPrint('[NativeRightCenter] Error deleting nominee: $e');
+        debugPrint('[NativeRightCenter] deleteNominee error: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Failed to delete nominee. Please try again.')),
@@ -561,27 +377,23 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
     }
   }
 
-  Future<void> _handleGrievanceSubmit() async {
+  // ─── Grievance handlers ───────────────────────────────────────────────────────
+
+  Future<void> _submitGrievance() async {
     if (!_grievanceFormKey.currentState!.validate()) return;
 
-    final payload = GrievanceTicket(
-      client_user_id: widget.userId,
+    final ticket = GrievanceTicket(
       subject: _grievanceForm['subject']!,
       category: _grievanceForm['category']!,
       description: _grievanceForm['description']!,
     );
 
     try {
-      final created = await _api.createGrievanceTicket(payload);
+      final created = await _api.createGrievanceTicket(ticket, widget.userId);
       setState(() {
         _tickets = [created, ..._tickets];
         _showGrievanceForm = false;
-        _grievanceForm.clear();
-        _grievanceForm.addAll({
-          'subject': '',
-          'category': '',
-          'description': '',
-        });
+        _grievanceForm.updateAll((_, __) => '');
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -589,7 +401,7 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
         );
       }
     } catch (e) {
-      debugPrint('[NativeRightCenter] Error creating grievance: $e');
+      debugPrint('[NativeRightCenter] submitGrievance error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to create grievance ticket. Please try again.')),
@@ -598,17 +410,73 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
     }
   }
 
+  // ─── Tab list ─────────────────────────────────────────────────────────────────
 
-  Widget _buildTabButton(String label, int index) {
-    final isActive = _activeTabIndex == index;
+  List<String> get _enabledTabs {
+    final tabs = <String>[];
+    if (_settings.showConsentsSection) tabs.add('Consent');
+    if (_settings.showRightsSection) tabs.add('Rights');
+    if (_settings.showNomineesSection) tabs.add('Nominee');
+    if (_settings.showGrievanceSection) tabs.add('Grievance');
+    if (_settings.showTransparencySection) tabs.add('Transparency');
+    if (_settings.showDpoSection) tabs.add('DPO');
+    if (tabs.isEmpty) tabs.add('Consent'); // fallback
+    return tabs;
+  }
+
+  // ─── Build ────────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isInitializing) {
+      return const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Loading Rights Center...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final tabs = _enabledTabs;
+    if (!tabs.contains(_activeTab)) {
+      _activeTab = tabs.first;
+    }
+
+    return Scaffold(
+      body: Column(
+        children: [
+          // Tab bar
+          Container(
+            color: Colors.white,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: tabs.map((tab) => _buildTabButton(tab)).toList(),
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+          // Content
+          Expanded(
+            child: _buildTabContent(_activeTab),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabButton(String label) {
+    final isActive = _activeTab == label;
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _activeTabIndex = index;
-        });
-      },
+      onTap: () => setState(() => _activeTab = label),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
@@ -619,7 +487,6 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
         ),
         child: Text(
           label,
-          textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 13,
             fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
@@ -630,105 +497,40 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          // Data Principal ID Banner
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            color: const Color(0xFFE0E7FF),
-            child: Center(
-              child: Text(
-                'Data Principal ID: ${widget.userId.length > 6 ? widget.userId.substring(0, 6) : widget.userId}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1E293B),
-                ),
-              ),
-            ),
-          ),
-
-          // Tabs - Wrapped in 2 rows (3+3)
-          Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildTabButton('Consent', 0),
-                  ),
-                  Expanded(
-                    child: _buildTabButton('Rights', 1),
-                  ),
-                  Expanded(
-                    child: _buildTabButton('Transparency', 2),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildTabButton('DPO', 3),
-                  ),
-                  Expanded(
-                    child: _buildTabButton('Nominee', 4),
-                  ),
-                  Expanded(
-                    child: _buildTabButton('Grievance', 5),
-                  ),
-                ],
-              ),
-            ],
-          ),
-
-          // Tab Content
-          Expanded(
-            child: IndexedStack(
-              index: _activeTabIndex,
-              children: [
-                _buildConsentTab(),
-                _buildRightsTab(),
-                _buildTransparencyTab(),
-                _buildDPOTab(),
-                _buildNomineeTab(),
-                _buildGrievanceTab(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+  Widget _buildTabContent(String tab) {
+    switch (tab) {
+      case 'Consent':
+        return _buildConsentTab();
+      case 'Rights':
+        return _buildRightsTab();
+      case 'Nominee':
+        return _buildNomineeTab();
+      case 'Grievance':
+        return _buildGrievanceTab();
+      case 'Transparency':
+        return _buildTransparencyTab();
+      case 'DPO':
+        return _buildDPOTab();
+      default:
+        return _buildConsentTab();
+    }
   }
 
-  Widget _buildConsentTab() {
-    if (_consentsLoading) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Loading consents...'),
-          ],
-        ),
-      );
-    }
+  // ─── Consent Tab ──────────────────────────────────────────────────────────────
 
+  Widget _buildConsentTab() {
     return Column(
       children: [
+        // Header
         Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
-                child: const Text(
-                  'Manage your Consents here!',
-                  style: TextStyle(
+                child: Text(
+                  _settings.consentsSectionTitle,
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF1E293B),
@@ -738,11 +540,10 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
               if (_dirty) ...[
                 const SizedBox(width: 12),
                 ElevatedButton(
-                  onPressed: _handleSave,
+                  onPressed: _saveConsents,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF9333EA),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    minimumSize: const Size(120, 40),
                   ),
                   child: const Text('Save Changes', style: TextStyle(color: Colors.white)),
                 ),
@@ -750,194 +551,163 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
             ],
           ),
         ),
-        Expanded(
-          child: _consentGroups.isEmpty
-              ? const Center(
-                  child: Text('You currently have no consent records to display.'),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _consentGroups.length,
-                  itemBuilder: (context, index) {
-                    final cp = _consentGroups[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              cp.title,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF1E293B),
-                              ),
-                            ),
-                            ...cp.purposes.map((p) {
-                              return _buildPurposeCard(p, cp);
-                            }),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-        ),
+        if (_showSaveSuccess)
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFD1FAE5),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Color(0xFF059669), size: 18),
+                SizedBox(width: 8),
+                Text('Consent preferences saved successfully.',
+                    style: TextStyle(color: Color(0xFF065F46))),
+              ],
+            ),
+          ),
+        if (_consentsLoading)
+          const Expanded(child: Center(child: CircularProgressIndicator()))
+        else if (_consents.isEmpty)
+          const Expanded(
+            child: Center(
+              child: Text('You currently have no consent records to display.'),
+            ),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _consents.length,
+              itemBuilder: (ctx, i) => _buildConsentCard(_consents[i]),
+            ),
+          ),
       ],
     );
   }
 
-  Widget _buildPurposeCard(Purpose p, ConsentGroup cp) {
+  Widget _buildConsentCard(Map<String, dynamic> p) {
+    final id = p['id'].toString();
+    final isMandatory = p['is_mandatory'] == true;
+    final isLegitimate = p['isLegitimate'] == true;
+    final consented = p['consented'] == 'accepted';
+    final dataElements = (p['dataElements'] as List?)?.cast<dynamic>() ?? [];
+
     return Card(
-      margin: const EdgeInsets.only(top: 12),
-      color: const Color(0xFFF8FAFC),
+      margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Name + badges
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: Text(
-                    p.name,
+                    p['name'] ?? '',
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF1E293B),
                     ),
                   ),
                 ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.info_outline, size: 20),
-                      onPressed: () {
-                        setState(() {
-                          _modalData = {
-                            'title': p.name,
-                            'description': p.description,
-                            'expiry': p.expiry_period,
-                            'collectionPoint': cp.title,
-                            'type': p.is_mandatory ? 'Mandatory' : 'Optional',
-                          };
-                        });
-                        showDialog(
-                          context: context,
-                          builder: (context) => _buildConsentDetailModal(),
-                        );
-                      },
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: p.is_mandatory
-                            ? const Color(0xFFFEE2E2)
-                            : const Color(0xFFDCFCE7),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        p.is_mandatory ? 'MANDATORY' : 'OPTIONAL',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: p.is_mandatory
-                              ? const Color(0xFF991B1B)
-                              : const Color(0xFF166534),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                const SizedBox(width: 8),
+                if (isMandatory)
+                  _badge('Necessary', const Color(0xFFFEE2E2), const Color(0xFF991B1B))
+                else if (isLegitimate)
+                  _badge('Legitimate Interest', const Color(0xFFE0F2FE), const Color(0xFF0369A1))
+                else
+                  _badge('Optional', const Color(0xFFDCFCE7), const Color(0xFF166534)),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              p.description,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF64748B),
+            const SizedBox(height: 6),
+            // Expiry & processing
+            if ((p['expiry_period'] ?? '').toString().isNotEmpty)
+              Text(
+                'Expiry: ${p['expiry_period']}',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
               ),
-            ),
             const SizedBox(height: 8),
-            Text(
-              'Expiry: ${p.expiry_period}',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-            ),
-            Text(
-              'Collection Point: ${cp.title}',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 8),
+            // Consented status pill + toggle
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Shown to Principal: ${cp.shown_to_principal == true ? 'Yes' : 'No'}',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: consented
+                        ? const Color(0xFFD1FAE5)
+                        : const Color(0xFFFEE2E2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    consented ? 'Yes' : 'No',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: consented
+                          ? const Color(0xFF065F46)
+                          : const Color(0xFF991B1B),
+                    ),
+                  ),
                 ),
-                Text(
-                  'Consented: ${p.consented == 'accepted' ? 'Yes' : 'No'}',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                Switch(
+                  value: consented,
+                  onChanged: isLegitimate ? null : (_) => _toggleConsent(id),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Switch(
-              value: p.consented == 'accepted',
-              onChanged: (_) => _handleToggle(p.id, cp.collection_point),
-            ),
+            // Data elements chips
+            if (dataElements.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: dataElements.map<Widget>((de) {
+                  final name = de is Map ? (de['name'] ?? de.toString()) : de.toString();
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      name,
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildConsentDetailModal() {
-    if (_modalData == null) return const SizedBox.shrink();
-    return AlertDialog(
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(child: Text(_modalData!['title'] ?? '')),
-          IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_modalData!['description'] ?? ''),
-            const SizedBox(height: 16),
-            Text('Expiry: ${_modalData!['expiry'] ?? ''}'),
-            Text('Collection Point: ${_modalData!['collectionPoint'] ?? ''}'),
-            Text('Type: ${_modalData!['type'] ?? ''}'),
-          ],
-        ),
-      ),
+  Widget _badge(String label, Color bg, Color fg) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
+      child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
     );
   }
+
+  // ─── Rights Tab ───────────────────────────────────────────────────────────────
 
   Widget _buildRightsTab() {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Your Data Rights',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1E293B),
-            ),
+          Text(
+            _settings.rightsSectionTitle,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
           ),
           const SizedBox(height: 8),
           const Text(
@@ -945,189 +715,134 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
             style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
           ),
           const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Confirm Data Deletion'),
-                  content: const Text(
-                    'Are you sure you want to request data deletion? This action cannot be undone.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Cancel'),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Request submitted successfully!'),
-                          ),
-                        );
-                      },
-                      style: TextButton.styleFrom(foregroundColor: Colors.red),
-                      child: const Text('Confirm Deletion'),
-                    ),
-                  ],
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
-              minimumSize: const Size(double.infinity, 48),
-            ),
-            child: const Text('Request Data Deletion', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildTransparencyTab() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Transparency',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1E293B),
+          // Access Request
+          if (_accessConfirmed)
+            _successBox('Your data access request has been submitted successfully.')
+          else ...[
+            ElevatedButton(
+              onPressed: () => setState(() => _showAccessModal = true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                minimumSize: const Size(double.infinity, 48),
+              ),
+              child: const Text('Request to Access My Data', style: TextStyle(color: Colors.white)),
             ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Learn how we collect, use, and protect your data',
-            style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
-          ),
+          ],
+
           const SizedBox(height: 16),
-          const Text(
-            'We collect your data to provide better services and comply with regulations. Your data is stored securely and used only for the purposes you\'ve consented to.',
-            style: TextStyle(fontSize: 14, color: Color(0xFF64748B), height: 1.5),
+
+          // Delete Request
+          if (_deleteConfirmed)
+            _successBox('Your data deletion request has been submitted successfully.')
+          else ...[
+            ElevatedButton(
+              onPressed: () => setState(() => _showDeleteModal = true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                minimumSize: const Size(double.infinity, 48),
+              ),
+              child: const Text('Request to Delete My Data', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+
+          // Access confirmation dialog
+          if (_showAccessModal)
+            _buildConfirmDialog(
+              title: 'Confirm Data Access Request',
+              message: 'Are you sure you want to request access to your personal data?',
+              confirmLabel: 'Confirm',
+              confirmColor: const Color(0xFF2563EB),
+              onConfirm: _requestAccess,
+              onCancel: () => setState(() => _showAccessModal = false),
+            ),
+
+          // Delete confirmation dialog
+          if (_showDeleteModal)
+            _buildConfirmDialog(
+              title: 'Confirm Data Deletion',
+              message:
+                  'Are you sure you want to request data deletion? This action cannot be undone.',
+              confirmLabel: 'Confirm Deletion',
+              confirmColor: const Color(0xFFDC2626),
+              onConfirm: _requestDeletion,
+              onCancel: () => setState(() => _showDeleteModal = false),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _successBox(String message) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFD1FAE5),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle, color: Color(0xFF059669), size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(message, style: const TextStyle(color: Color(0xFF065F46), fontSize: 14)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDPOTab() {
-    if (_dpoLoading) {
-      return const Center(
+  Widget _buildConfirmDialog({
+    required String title,
+    required String message,
+    required String confirmLabel,
+    required Color confirmColor,
+    required VoidCallback onConfirm,
+    required VoidCallback onCancel,
+  }) {
+    return Card(
+      margin: const EdgeInsets.only(top: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Loading DPO information...'),
+            Text(title,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+            const SizedBox(height: 10),
+            Text(message, style: const TextStyle(fontSize: 14, color: Color(0xFF64748B))),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: onCancel,
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: onConfirm,
+                    style: ElevatedButton.styleFrom(backgroundColor: confirmColor),
+                    child: Text(confirmLabel, style: const TextStyle(color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
-      );
-    }
-
-    if (_dpoError != null) {
-      return Center(
-        child: Text(
-          _dpoError!,
-          style: const TextStyle(color: Color(0xFFDC2626)),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Data Protection Officer (DPO) Contact',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1E293B),
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Contact our DPO for data protection matters and privacy concerns',
-            style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
-          ),
-          const SizedBox(height: 16),
-          if (_dpoInfo != null)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildDPOItem('Name', _dpoInfo!.full_name ?? 'N/A'),
-                    _buildDPOItem('Email', _dpoInfo!.email ?? 'N/A'),
-                    _buildDPOItem('Appointment Date', _dpoInfo!.appointment_date ?? 'N/A'),
-                    _buildDPOItem('Qualifications', _dpoInfo!.qualifications ?? 'N/A'),
-                    _buildDPOItem('Responsibilities', _dpoInfo!.responsibilities ?? 'N/A'),
-                  ],
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }
 
-  Widget _buildDPOItem(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF64748B),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF1E293B),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // ─── Nominee Tab ──────────────────────────────────────────────────────────────
 
   Widget _buildNomineeTab() {
-    if (_nomineeLoading) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Loading nominee information...'),
-          ],
-        ),
-      );
-    }
-
-    if (_nomineeError != null) {
-      return Center(
-        child: Text(
-          _nomineeError!,
-          style: const TextStyle(color: Color(0xFFDC2626)),
-        ),
-      );
-    }
-
     final nominee = _nominees.isNotEmpty ? _nominees.first : null;
 
     return SingleChildScrollView(
@@ -1135,20 +850,12 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Appoint Nominee',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1E293B),
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Appoint someone to manage your data rights on your behalf',
-            style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+          Text(
+            _settings.nomineesSectionTitle,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
           ),
           const SizedBox(height: 16),
+          // Warning box
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -1156,11 +863,13 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
               borderRadius: BorderRadius.circular(6),
             ),
             child: const Text(
-              '⚠️ Your nominee will be able to exercise all data rights on your behalf.',
+              'Your nominee will be able to exercise all data rights on your behalf.',
               style: TextStyle(fontSize: 14, color: Color(0xFF92400E)),
             ),
           ),
           const SizedBox(height: 16),
+
+          // Existing nominee (view mode)
           if (nominee != null && !_editing)
             Card(
               child: Padding(
@@ -1168,31 +877,27 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildNomineeItem('Name', nominee.nominee_name),
-                    _buildNomineeItem('Relationship', nominee.relationship),
-                    _buildNomineeItem('Email', nominee.nominee_email),
-                    _buildNomineeItem('Mobile', nominee.nominee_mobile),
-                    if (nominee.purpose_of_appointment != null)
-                      _buildNomineeItem('Purpose of Appointment', nominee.purpose_of_appointment!),
+                    _infoRow('Name', nominee.nominee_name),
+                    _infoRow('Relationship', nominee.relationship),
+                    _infoRow('Email', nominee.nominee_email),
+                    _infoRow('Mobile', nominee.nominee_mobile),
+                    if (nominee.purpose_of_appointment != null && nominee.purpose_of_appointment!.isNotEmpty)
+                      _infoRow('Purpose of Appointment', nominee.purpose_of_appointment!),
                     const SizedBox(height: 16),
                     Row(
                       children: [
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () => setState(() => _editing = true),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF9333EA),
-                            ),
+                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF9333EA)),
                             child: const Text('Edit', style: TextStyle(color: Colors.white)),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: _handleDeleteNominee,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFDC2626),
-                            ),
+                            onPressed: _deleteNominee,
+                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
                             child: const Text('Delete', style: TextStyle(color: Colors.white)),
                           ),
                         ),
@@ -1203,66 +908,38 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
               ),
             )
           else
+            // Form mode
             Form(
               key: _nomineeFormKey,
               child: Column(
                 children: [
-                  TextFormField(
-                    decoration: const InputDecoration(
-                      labelText: 'Name *',
-                      hintText: 'Full name of nominee',
-                      border: OutlineInputBorder(),
-                    ),
-                    initialValue: _nomineeForm['nominee_name'],
-                    onChanged: (value) => _nomineeForm['nominee_name'] = value,
-                    validator: (value) =>
-                        value?.isEmpty ?? true ? 'Name is required' : null,
+                  _textField(
+                    label: 'Name *',
+                    hint: 'Full name of nominee',
+                    key: 'nominee_name',
+                    required: true,
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: 'Relationship *',
-                      border: OutlineInputBorder(),
-                    ),
-                    value: _nomineeForm['relationship']?.isEmpty ?? true
-                        ? null
-                        : _nomineeForm['relationship'],
-                    items: const [
-                      DropdownMenuItem(value: 'Spouse', child: Text('Spouse')),
-                      DropdownMenuItem(value: 'Parent', child: Text('Parent')),
-                      DropdownMenuItem(value: 'Child', child: Text('Child')),
-                      DropdownMenuItem(value: 'Sibling', child: Text('Sibling')),
-                      DropdownMenuItem(value: 'Other', child: Text('Other')),
-                    ],
-                    onChanged: (value) => _nomineeForm['relationship'] = value ?? '',
-                    validator: (value) =>
-                        value?.isEmpty ?? true ? 'Relationship is required' : null,
+                  _dropdownField(
+                    label: 'Relationship *',
+                    key: 'relationship',
+                    options: const ['Spouse', 'Parent', 'Child', 'Sibling', 'Other'],
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    decoration: const InputDecoration(
-                      labelText: 'Email *',
-                      hintText: 'nominee@example.com',
-                      border: OutlineInputBorder(),
-                    ),
+                  _textField(
+                    label: 'Email *',
+                    hint: 'nominee@example.com',
+                    key: 'nominee_email',
+                    required: true,
                     keyboardType: TextInputType.emailAddress,
-                    initialValue: _nomineeForm['nominee_email'],
-                    onChanged: (value) => _nomineeForm['nominee_email'] = value,
-                    validator: (value) =>
-                        value?.isEmpty ?? true ? 'Email is required' : null,
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    decoration: const InputDecoration(
-                      labelText: 'Mobile Number *',
-                      hintText: '+1234567890',
-                      border: OutlineInputBorder(),
-                    ),
+                  _textField(
+                    label: 'Mobile Number *',
+                    hint: '+1234567890',
+                    key: 'nominee_mobile',
+                    required: true,
                     keyboardType: TextInputType.phone,
-                    initialValue: _nomineeForm['nominee_mobile'],
-                    onChanged: (value) => _nomineeForm['nominee_mobile'] = value,
-                    validator: (value) =>
-                        value?.isEmpty ?? true ? 'Mobile number is required' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -1273,31 +950,28 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
                     ),
                     maxLines: 4,
                     initialValue: _nomineeForm['purpose_of_appointment'],
-                    onChanged: (value) => _nomineeForm['purpose_of_appointment'] = value,
+                    onChanged: (v) => _nomineeForm['purpose_of_appointment'] = v,
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: _handleNomineeSubmit,
+                    onPressed: _submitNominee,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF9333EA),
                       minimumSize: const Size(double.infinity, 48),
                     ),
                     child: Text(
-                      _editing ? 'Update Nominee' : 'Send Verification Code',
+                      _editing ? 'Update Nominee' : 'Add Nominee',
                       style: const TextStyle(color: Colors.white),
                     ),
                   ),
-                  if (_editing)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: OutlinedButton(
-                        onPressed: () => setState(() => _editing = false),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(double.infinity, 48),
-                        ),
-                        child: const Text('Cancel'),
-                      ),
+                  if (_editing) ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                      onPressed: () => setState(() => _editing = false),
+                      style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
+                      child: const Text('Cancel'),
                     ),
+                  ],
                 ],
               ),
             ),
@@ -1306,52 +980,22 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
     );
   }
 
-  Widget _buildNomineeItem(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF64748B),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF1E293B),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // ─── Grievance Tab ────────────────────────────────────────────────────────────
 
   Widget _buildGrievanceTab() {
-    if (_ticketsLoading) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Loading grievance tickets...'),
-          ],
-        ),
-      );
-    }
-
-    if (_ticketsError != null) {
+    // External mode
+    if (_settings.grievanceMode == 'external' &&
+        _settings.grievanceExternalUrl.isNotEmpty) {
       return Center(
-        child: Text(
-          _ticketsError!,
-          style: const TextStyle(color: Color(0xFFDC2626)),
+        child: ElevatedButton.icon(
+          icon: const Icon(Icons.open_in_new),
+          label: const Text('Open Grievance Portal'),
+          onPressed: () async {
+            final uri = Uri.tryParse(_settings.grievanceExternalUrl);
+            if (uri != null && await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+          },
         ),
       );
     }
@@ -1363,37 +1007,26 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Grievance Tickets',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E293B),
-                      ),
-                    ),
+                    Text('Grievance Tickets',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
                     SizedBox(height: 4),
-                    Text(
-                      'Submit privacy concerns or view your existing tickets',
-                      style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
-                    ),
+                    Text('Submit privacy concerns or view your existing tickets',
+                        style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
               ElevatedButton(
                 onPressed: () => setState(() => _showGrievanceForm = !_showGrievanceForm),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF9333EA),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  minimumSize: const Size(140, 44),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
-                child: const Text('Create New Ticket', style: TextStyle(color: Colors.white)),
+                child: const Text('Create New Ticket', style: TextStyle(color: Colors.white, fontSize: 13)),
               ),
             ],
           ),
@@ -1403,40 +1036,19 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
               key: _grievanceFormKey,
               child: Column(
                 children: [
-                  TextFormField(
-                    decoration: const InputDecoration(
-                      labelText: 'Subject *',
-                      hintText: 'Brief description of your concern',
-                      border: OutlineInputBorder(),
-                    ),
-                    initialValue: _grievanceForm['subject'],
-                    onChanged: (value) => _grievanceForm['subject'] = value,
-                    validator: (value) =>
-                        value?.isEmpty ?? true ? 'Subject is required' : null,
+                  _textField(
+                    label: 'Subject *',
+                    hint: 'Brief description of your concern',
+                    key: 'subject',
+                    required: true,
+                    formMap: _grievanceForm,
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: 'Category *',
-                      border: OutlineInputBorder(),
-                    ),
-                    value: _grievanceForm['category']?.isEmpty ?? true
-                        ? null
-                        : _grievanceForm['category'],
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'Privacy Concern',
-                        child: Text('Privacy Concern'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Data Access',
-                        child: Text('Data Access'),
-                      ),
-                      DropdownMenuItem(value: 'Other', child: Text('Other')),
-                    ],
-                    onChanged: (value) => _grievanceForm['category'] = value ?? '',
-                    validator: (value) =>
-                        value?.isEmpty ?? true ? 'Category is required' : null,
+                  _dropdownField(
+                    label: 'Category *',
+                    key: 'category',
+                    options: const ['Privacy Concern', 'Data Access', 'Other'],
+                    formMap: _grievanceForm,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -1447,19 +1059,16 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
                     ),
                     maxLines: 4,
                     initialValue: _grievanceForm['description'],
-                    onChanged: (value) => _grievanceForm['description'] = value,
-                    validator: (value) =>
-                        value?.isEmpty ?? true ? 'Description is required' : null,
+                    onChanged: (v) => _grievanceForm['description'] = v,
+                    validator: (v) => (v?.isEmpty ?? true) ? 'Description is required' : null,
                   ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: _handleGrievanceSubmit,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF9333EA),
-                          ),
+                          onPressed: _submitGrievance,
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF9333EA)),
                           child: const Text('Submit Ticket', style: TextStyle(color: Colors.white)),
                         ),
                       ),
@@ -1477,15 +1086,9 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
             ),
           ],
           const SizedBox(height: 24),
-          const Text(
-            'Your Tickets',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF1E293B),
-            ),
-          ),
-          const SizedBox(height: 16),
+          const Text('Your Tickets',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+          const SizedBox(height: 12),
           if (_tickets.isEmpty)
             const Center(
               child: Padding(
@@ -1494,61 +1097,171 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
               ),
             )
           else
-            ..._tickets.map((ticket) {
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              ticket.subject,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF1E293B),
+            ..._tickets.map((ticket) => Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(ticket.subject,
+                                  style: const TextStyle(
+                                      fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFD1FAE5),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                ticket.status ?? 'Open',
+                                style: const TextStyle(
+                                    fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF059669)),
                               ),
                             ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFD1FAE5),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              ticket.status ?? 'Open',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF059669),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        ticket.description,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF64748B),
-                          height: 1.5,
+                          ],
                         ),
-                      ),
-                    ],
+                        if (ticket.ticket_id != null) ...[
+                          const SizedBox(height: 4),
+                          Text('Ticket #${ticket.ticket_id}',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                        ],
+                        const SizedBox(height: 6),
+                        Text(ticket.category,
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                        const SizedBox(height: 4),
+                        Text(ticket.description,
+                            style:
+                                const TextStyle(fontSize: 14, color: Color(0xFF64748B), height: 1.5)),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            }),
+                )),
         ],
       ),
     );
   }
-}
 
+  // ─── Transparency Tab ─────────────────────────────────────────────────────────
+
+  Widget _buildTransparencyTab() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Transparency',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+          const SizedBox(height: 8),
+          Text(
+            _settings.transparencyDescription.isNotEmpty
+                ? _settings.transparencyDescription
+                : 'We collect your data to provide better services and comply with regulations. '
+                    'Your data is stored securely and used only for the purposes you\'ve consented to.',
+            style: const TextStyle(fontSize: 14, color: Color(0xFF64748B), height: 1.5),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── DPO Tab ──────────────────────────────────────────────────────────────────
+
+  Widget _buildDPOTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('DPO Information',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+          const SizedBox(height: 16),
+          if (_dpoInfo == null)
+            const Text('No DPO information available.',
+                style: TextStyle(color: Color(0xFF64748B)))
+          else
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    _infoRow('Full Name', _dpoInfo!.full_name ?? 'N/A'),
+                    _infoRow('Email', _dpoInfo!.email ?? 'N/A'),
+                    _infoRow('Appointment Date', _dpoInfo!.appointment_date ?? 'N/A'),
+                    if (_settings.dpoQualificationsEnabled)
+                      _infoRow('Qualifications', _dpoInfo!.qualifications ?? 'N/A'),
+                    if (_settings.dpoResponsibilitiesEnabled)
+                      _infoRow('Responsibilities', _dpoInfo!.responsibilities ?? 'N/A'),
+                    if (_settings.dpoWorkingHoursEnabled)
+                      _infoRow('Working Hours', _dpoInfo!.working_hours ?? 'N/A'),
+                    if (_settings.dpoResponseTimeEnabled)
+                      _infoRow('Response Time', _dpoInfo!.response_time ?? 'N/A'),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Shared helpers ───────────────────────────────────────────────────────────
+
+  Widget _infoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+          const SizedBox(height: 3),
+          Text(value,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFF1E293B))),
+        ],
+      ),
+    );
+  }
+
+  Widget _textField({
+    required String label,
+    required String hint,
+    required String key,
+    bool required = false,
+    TextInputType? keyboardType,
+    Map<String, String>? formMap,
+  }) {
+    final map = formMap ?? _nomineeForm;
+    return TextFormField(
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        border: const OutlineInputBorder(),
+      ),
+      keyboardType: keyboardType,
+      initialValue: map[key],
+      onChanged: (v) => map[key] = v,
+      validator: required ? (v) => (v?.isEmpty ?? true) ? '${label.replaceAll(' *', '')} is required' : null : null,
+    );
+  }
+
+  Widget _dropdownField({
+    required String label,
+    required String key,
+    required List<String> options,
+    Map<String, String>? formMap,
+  }) {
+    final map = formMap ?? _nomineeForm;
+    return DropdownButtonFormField<String>(
+      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+      value: (map[key]?.isEmpty ?? true) ? null : map[key],
+      items: options.map((o) => DropdownMenuItem(value: o, child: Text(o))).toList(),
+      onChanged: (v) => map[key] = v ?? '',
+      validator: (v) => (v?.isEmpty ?? true) ? '${label.replaceAll(' *', '')} is required' : null,
+    );
+  }
+}
