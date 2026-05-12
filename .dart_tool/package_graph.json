@@ -5,7 +5,7 @@
   "packages": [
     {
       "name": "truconsent_consent_notice_flutter",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "dependencies": [
         "flutter",
         "flutter_localizations",
@@ -452,7 +452,7 @@
     },
     {
       "name": "test_api",
-      "version": "0.7.7",
+      "version": "0.7.10",
       "dependencies": [
         "async",
         "boolean_selector",
@@ -482,7 +482,7 @@
     },
     {
       "name": "matcher",
-      "version": "0.12.17",
+      "version": "0.12.19",
       "dependencies": [
         "async",
         "meta",
@@ -659,14 +659,14 @@
     },
     {
       "name": "material_color_utilities",
-      "version": "0.11.1",
+      "version": "0.13.0",
       "dependencies": [
         "collection"
       ]
     },
     {
       "name": "characters",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "dependencies": []
     },
     {
