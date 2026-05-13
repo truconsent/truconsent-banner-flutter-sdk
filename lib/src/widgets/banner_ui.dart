@@ -479,12 +479,4 @@ class _BannerUIState extends State<BannerUI> with SingleTickerProviderStateMixin
     );
   }
 
-  Color _parseColor(String? colorString) {
-    if (colorString == null) return const Color(0xFF7030bc);
-    try {
-      return Color(int.parse(colorString.replaceFirst('#', '0xFF')));
-    } catch (e) {
-      return const Color(0xFF7030bc);
-    }
-  }
 }

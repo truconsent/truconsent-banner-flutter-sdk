@@ -555,23 +555,21 @@ class RightsCenterApi {
 
   // ─── Consent ─────────────────────────────────────────────────────────────────
 
-  /// Fetch all banner templates + merge user consent status.
-  /// Same flow as mars-money-website RightCenter.jsx:
-  ///   1. GET /api/v1/internal/consent?asset_id=... (all banners)
-  ///   2. GET /api/v1/internal/consent/user-consent-status?userId=...
+  /// Fetch user's banners with consent status already merged.
+  /// Uses GET /api/v1/internal/consent/user/{userId} — requires consent scope (not admin).
   Future<List<Map<String, dynamic>>> getUserConsentsFlat(
     String userId, {
     String? assetId,
   }) async {
-    // Step 1 — all banner templates (same as website)
-    final assetQuery = assetId != null && assetId.isNotEmpty
-        ? '?asset_id=${Uri.encodeComponent(assetId)}'
-        : '';
+    // Step 1 — GET /api/v1/internal/consent/user/{userId}
+    // Returns banners with the user's consent status pre-merged. Requires consent scope only.
     dynamic bannersResp;
     try {
-      bannersResp = await _request('/api/v1/internal/consent$assetQuery');
+      bannersResp = await _request(
+        '/api/v1/internal/consent/user/${Uri.encodeComponent(userId)}',
+      );
     } catch (e) {
-      debugPrint('[RightsCenterApi] Error fetching consent banners: $e');
+      debugPrint('[RightsCenterApi] Error fetching user consent banners: $e');
       bannersResp = null;
     }
 

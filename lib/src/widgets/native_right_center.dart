@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/rights_center_api.dart';
 
+Color _hexToColor(String hex) {
+  final clean = hex.replaceAll('#', '');
+  final full = clean.length == 6 ? 'FF$clean' : clean;
+  return Color(int.parse(full, radix: 16));
+}
+
 /// Native Flutter implementation of Rights Center.
 ///
 /// Provides a comprehensive rights management interface with native tabs for:
@@ -47,6 +53,13 @@ class NativeRightCenter extends StatefulWidget {
 
 class _NativeRightCenterState extends State<NativeRightCenter> {
   late RightsCenterApi _api;
+
+  // Theme helpers — derived from _settings after fetch
+  Color get _bgColor => _hexToColor(_settings.backgroundColor);
+  Color get _primaryText => _hexToColor(_settings.primaryTextColor);
+  Color get _secondaryText => _hexToColor(_settings.secondaryTextColor);
+  Color get _btnColor => _hexToColor(_settings.buttonColor);
+  Color get _btnTextColor => _hexToColor(_settings.buttonTextColor);
 
   // Global
   bool _isInitializing = true;
@@ -429,16 +442,14 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
   @override
   Widget build(BuildContext context) {
     if (_isInitializing) {
-      return const Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Loading Rights Center...'),
-            ],
-          ),
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading Rights Center...'),
+          ],
         ),
       );
     }
@@ -448,12 +459,13 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
       _activeTab = tabs.first;
     }
 
-    return Scaffold(
-      body: Column(
+    return ColoredBox(
+      color: _bgColor,
+      child: Column(
         children: [
           // Tab bar
           Container(
-            color: Colors.white,
+            color: _bgColor,
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -480,7 +492,7 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: isActive ? const Color(0xFF9333EA) : Colors.transparent,
+              color: isActive ? _btnColor : Colors.transparent,
               width: 2,
             ),
           ),
@@ -490,7 +502,7 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-            color: isActive ? const Color(0xFF9333EA) : const Color(0xFF64748B),
+            color: isActive ? _btnColor : _secondaryText,
           ),
         ),
       ),
@@ -530,10 +542,10 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
               Expanded(
                 child: Text(
                   _settings.consentsSectionTitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E293B),
+                    color: _primaryText,
                   ),
                 ),
               ),
@@ -542,10 +554,10 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
                 ElevatedButton(
                   onPressed: _saveConsents,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF9333EA),
+                    backgroundColor: _btnColor,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   ),
-                  child: const Text('Save Changes', style: TextStyle(color: Colors.white)),
+                  child: Text('Save Changes', style: TextStyle(color: _btnTextColor)),
                 ),
               ],
             ],
@@ -571,9 +583,12 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
         if (_consentsLoading)
           const Expanded(child: Center(child: CircularProgressIndicator()))
         else if (_consents.isEmpty)
-          const Expanded(
+          Expanded(
             child: Center(
-              child: Text('You currently have no consent records to display.'),
+              child: Text(
+                'You currently have no consent records to display.',
+                style: TextStyle(color: _secondaryText),
+              ),
             ),
           )
         else
@@ -608,10 +623,10 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
                 Expanded(
                   child: Text(
                     p['name'] ?? '',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF1E293B),
+                      color: _primaryText,
                     ),
                   ),
                 ),
@@ -707,12 +722,12 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
         children: [
           Text(
             _settings.rightsSectionTitle,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _primaryText),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'You can access, correct, delete, or export your data.',
-            style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+            style: TextStyle(fontSize: 14, color: _secondaryText),
           ),
           const SizedBox(height: 24),
 
@@ -723,10 +738,10 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
             ElevatedButton(
               onPressed: () => setState(() => _showAccessModal = true),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2563EB),
+                backgroundColor: _btnColor,
                 minimumSize: const Size(double.infinity, 48),
               ),
-              child: const Text('Request to Access My Data', style: TextStyle(color: Colors.white)),
+              child: Text('Request to Access My Data', style: TextStyle(color: _btnTextColor)),
             ),
           ],
 
@@ -742,7 +757,7 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
                 backgroundColor: const Color(0xFFDC2626),
                 minimumSize: const Size(double.infinity, 48),
               ),
-              child: const Text('Request to Delete My Data', style: TextStyle(color: Colors.white)),
+              child: Text('Request to Delete My Data', style: TextStyle(color: _btnTextColor)),
             ),
           ],
 
@@ -812,9 +827,9 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(title,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _primaryText)),
             const SizedBox(height: 10),
-            Text(message, style: const TextStyle(fontSize: 14, color: Color(0xFF64748B))),
+            Text(message, style: TextStyle(fontSize: 14, color: _secondaryText)),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -852,7 +867,7 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
         children: [
           Text(
             _settings.nomineesSectionTitle,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _primaryText),
           ),
           const SizedBox(height: 16),
           // Warning box
@@ -889,8 +904,8 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () => setState(() => _editing = true),
-                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF9333EA)),
-                            child: const Text('Edit', style: TextStyle(color: Colors.white)),
+                            style: ElevatedButton.styleFrom(backgroundColor: _btnColor),
+                            child: Text('Edit', style: TextStyle(color: _btnTextColor)),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -956,12 +971,12 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
                   ElevatedButton(
                     onPressed: _submitNominee,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF9333EA),
+                      backgroundColor: _btnColor,
                       minimumSize: const Size(double.infinity, 48),
                     ),
                     child: Text(
                       _editing ? 'Update Nominee' : 'Add Nominee',
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: _btnTextColor),
                     ),
                   ),
                   if (_editing) ...[
@@ -1023,10 +1038,10 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
               ElevatedButton(
                 onPressed: () => setState(() => _showGrievanceForm = !_showGrievanceForm),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF9333EA),
+                  backgroundColor: _btnColor,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
-                child: const Text('Create New Ticket', style: TextStyle(color: Colors.white, fontSize: 13)),
+                child: Text('Create New Ticket', style: TextStyle(color: _btnTextColor, fontSize: 13)),
               ),
             ],
           ),
@@ -1068,8 +1083,8 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: _submitGrievance,
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF9333EA)),
-                          child: const Text('Submit Ticket', style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(backgroundColor: _btnColor),
+                          child: Text('Submit Ticket', style: TextStyle(color: _btnTextColor)),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1155,8 +1170,8 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Transparency',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+          Text('Transparency',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _primaryText)),
           const SizedBox(height: 8),
           Text(
             _settings.transparencyDescription.isNotEmpty
@@ -1178,8 +1193,8 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('DPO Information',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+          Text('DPO Information',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _primaryText)),
           const SizedBox(height: 16),
           if (_dpoInfo == null)
             const Text('No DPO information available.',
@@ -1218,10 +1233,10 @@ class _NativeRightCenterState extends State<NativeRightCenter> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+          Text(label, style: TextStyle(fontSize: 12, color: _secondaryText)),
           const SizedBox(height: 3),
           Text(value,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFF1E293B))),
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: _primaryText)),
         ],
       ),
     );
