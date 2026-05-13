@@ -406,7 +406,7 @@ class RightsCenterApi {
   final String apiKey;
   final String organizationId;
   final String? userId;
-  static const Duration _timeout = Duration(seconds: 15);
+  static const Duration _timeout = Duration(seconds: 30);
 
   RightsCenterApi({
     required this.apiUrl,
